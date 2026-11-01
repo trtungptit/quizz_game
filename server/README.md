@@ -1,10 +1,10 @@
-# QUIZ Server — tài khoản, hiện diện, bộ câu hỏi, phòng và lời mời
+# QUIZ Server — tài khoản, phòng, lời mời và chơi quiz
 
 ## Phạm vi hiện tại
 
-Đã triển khai tài khoản/hiện diện, đọc bộ câu hỏi (`SET_LIST` / `SET_GET`) và luồng tạo/vào/rời phòng + lời mời. Luồng TCP/DB được kiểm thử với **MySQL tạm**; chưa kiểm tra trực tiếp giao diện Swing cho lượt phòng/lời mời này. Chưa triển khai tạo/sửa/xóa bộ qua ứng dụng, ready/remind/kick/config hoặc gameplay.
+Đã triển khai tài khoản/hiện diện, đọc bộ câu hỏi, phòng/lời mời, sẵn sàng/nhắc/kick/cấu hình và chơi trọn trận (START_GAME, ANSWER, QUIT_GAME). Luồng TCP/DB được kiểm thử với **MySQL tạm**; chưa thao tác trực tiếp giao diện Swing cho giai đoạn gameplay này. Chưa triển khai tạo/sửa/xóa bộ qua ứng dụng, leaderboard hoặc history API.
 
-`ServerApp` chạy `StartupRecovery` sau khi lấy named lock: hủy các phòng waiting/playing, kết thúc membership còn active và hủy lời mời pending còn sót từ lần chạy trước. Hành vi này đã được kiểm thử trên DB tạm, không xóa tài khoản. Chỉ chạy trên DB demo đã sao lưu/chấp nhận việc reset trạng thái runtime; không dùng bản này trên DB production.
+`ServerApp` chạy `StartupRecovery` sau khi lấy named lock: hủy phòng/lời mời/match còn dở, đóng submission chưa kết thúc và đánh dấu round hoàn tất trong match cancelled. Không xóa tài khoản hoặc cộng thắng cho trận bị hủy. Shutdown hủy trận trước khi lần lượt đóng sockets để không tạo người thắng giả. Chỉ chạy trên DB demo đã sao lưu/chấp nhận việc reset trạng thái runtime; không dùng bản này trên DB production.
 
 ## Yêu cầu cấu hình
 
@@ -77,7 +77,7 @@ Server kiểm tra schema và lấy MySQL named lock trước khi bind cổng. N�
 - Sender rời/phòng đóng và receiver logout/disconnect: hủy lời không còn hợp lệ. Vì protocol không có `CANCELLED`, dialog cũ có thể còn đến hết 5 giây; server giữ slot trước khi gửi lời kế tiếp, hoặc giải phóng khi client trả lời ID cũ (`INVITE_EXPIRED`). Không thêm enum/event ngoài protocol.
 - Room/presence/invitation mutation và timer cùng monitor điều phối, writer FIFO riêng. Server xử lý tối đa 32 kết nối đồng thời; không để kết nối thứ 9 bị xếp sau 8 phiên còn mở.
 - SQL thất bại khi accept: rollback membership/trạng thái lời mời, không công bố ACCEPTED. Cleanup disconnect thất bại được ghi nhớ và thử lại; không giữ user online giả. Shutdown vẫn dựa vào startup recovery nếu DB không phục hồi kịp.
-- `RoomState.set=null`, `numQuestions=0`, chưa có cấu hình trận. Các nút ready, nhắc sẵn sàng, kick, chọn bộ/cấu hình và bắt đầu chơi vẫn trả lỗi chưa hỗ trợ; không phải toàn bộ gameplay đã xong.
+- Phòng mới chưa chọn bộ (`set=null`, `numQuestions=0`). Sau `ROOM_CONFIG`, ROOM_STATE mang tóm tắt bộ thật; xem các thao tác quản lý/chơi bên dưới.
 - Kiểm chứng: 14 integration test mới dùng TCP thật/MySQL tạm cho lifecycle, queue, deadline lúc coordinator bận, capacity race, duplicate invite, rollback, cleanup retry, recovery/instance lock và 10 client ở hai phòng. Không đọc hoặc sửa DB demo của Hải.
 
 ### Kiểm tra bằng hai client
@@ -88,3 +88,47 @@ Server kiểm tra schema và lấy MySQL named lock trước khi bind cổng. N�
 4. Kiểm tra thành viên và trạng thái cả hai phía; thử B rời rồi vào lại bằng mã.
 5. A đóng client/đăng xuất: B nhận quyền chủ; B rời: mã phòng cũ không còn tham gia được.
 6. Không nhập lại schema hoặc SQL câu hỏi; không commit `.env`. Chưa commit/push tự động.
+
+## Sẵn sàng, nhắc, kick và cấu hình
+
+- `SET_READY {ready}`: boolean đúng kiểu, chỉ thành viên phòng WAITING. ACK sau commit rồi ROOM_STATE tới cả phòng.
+- `REMIND_READY`: người gọi phải ready; chỉ những người chưa ready nhận READY_REMINDER. Giới hạn một lần/5 giây theo session trong phòng; state được dọn khi rời/kick/kết thúc trận.
+- `KICK {username}`: chỉ host khi WAITING; không tự kick. Kết thúc membership và lời mời đã gửi của target, đưa target về IDLE và gửi KICKED; cả phòng nhận snapshot mới.
+- `ROOM_CONFIG {setId,numQuestions,timeOverrideSeconds}`: chỉ host, WAITING; count 1..số câu, time null hoặc 5..60. Bỏ bộ dùng setId=null,count=0. Bộ xóa/rỗng bị từ chối.
+- Thay đổi cấu hình thật sẽ reset ready của cả phòng. Gửi lại cấu hình y hệt không reset. Không cần ALTER schema.
+
+## Luồng chơi
+
+1. Host START_GAME khi có bộ hợp lệ, ít nhất hai người và mọi người ready. Server đóng băng N câu đầu theo position, kiểm tra ảnh/frame trước khi ghi match; một transaction tạo match/participants/round/questions và chuyển phòng PLAYING.
+2. ACK START_GAME -> GAME_START (ảnh dùng chung) -> QUESTION đầu cho từng người. QUESTION không có đáp án đúng. Đổi presence PLAYING, hủy lời mời chưa hết hạn của phòng.
+3. Mỗi người có submission slot/deadline riêng; mốc actual-write được ghi trước khi đợi state monitor. Client không gửi thời gian/điểm để server tin theo.
+4. ANSWER được validate theo SINGLE/MULTI/TYPE; chỉ đáp án đầu tiên được lưu. SINGLE một lựa chọn, MULTI so tập chính xác, TYPE chuẩn hóa whitespace/case nhưng giữ dấu tiếng Việt.
+5. ACK ANSWER -> ANSWER_RESULT -> SCOREBOARD. Đúng được điểm theo công thức PROTOCOL; sai/timeout bằng 0. Timer xử lý ở hạn +500 ms theo grace của protocol, thời gian tính điểm clamp tại hạn gốc.
+6. Khoảng 1500 ms sau khi gửi ANSWER_RESULT, server gửi câu tiếp theo cho riêng người đó. Người xong câu cuối chờ những người còn lại; không gửi thêm câu.
+7. Mọi người xong hoặc chỉ còn một người không rời: transaction finalize lưu kết quả, tăng total_wins đúng một lần nếu có người thắng, đưa phòng WAITING và reset ready. Sau commit mới gửi GAME_END -> ROOM_STATE -> USER_UPDATE. Bằng điểm cao nhất là hòa, không cộng thắng.
+8. QUIT_GAME ghi QUIT, nhưng giữ membership để tương thích client gọi LEAVE_ROOM tiếp theo. EOF/logout ghi DISCONNECTED. Người rời xếp sau người ở lại; người sống sót duy nhất thắng. Hủy server khác với quit, không tự cộng thắng.
+
+### Lưu kết quả và xử lý lỗi
+
+- SQL lỗi khi start/answer: rollback, không ACK thành công và không đổi score trong RAM trước commit.
+- Finalize lỗi: giữ kết quả đã đóng băng và retry idempotent, không phát GAME_END giả/không cộng thắng hai lần. Player rời trong lúc retry được tách khỏi session trận cũ để event/callback cũ không thay đổi trận mới.
+- Mặc định JDBC có connectTimeout/socketTimeout=5000 ms; tham số do người vận hành thêm vào JDBC URL có thể thay mặc định của driver. Không log URL/credentials.
+- Ảnh phải ở images/, mỗi file <=1 MiB. Tổng GAME_START/QUESTION phải vừa frame 2 MiB; lỗi ảnh/frame chặn START trước commit, không làm rớt kết nối.
+- Test dùng SQL trigger chỉ trong DB disposable để chứng minh rollback/start/answer/finalize/cleanup; không cài trigger lên DB người dùng.
+
+### Demo một trận bằng hai client
+
+1. Dừng backend cũ, build/chạy lại ServerApp bằng working directory đã cấu hình. Mở hai client và đăng nhập hai tài khoản khác nhau.
+2. A tạo phòng, B vào bằng mã hoặc lời mời. A chọn bộ đã nhập SQL, chọn số câu/thời gian.
+3. A bấm sẵn sàng, thử nhắc B; B sẵn sàng. A bấm Bắt đầu.
+4. Trả lời theo tốc độ riêng; kiểm tra kết quả từng câu, bảng điểm, kết quả trận và số trận thắng.
+5. Cả hai sẵn sàng lại để chơi trận mới; thử một người thoát giữa trận ở lượt khác.
+6. Không nhập lại SQL/schema. Chưa commit/push giai đoạn này; các màn tạo/sửa/xóa bộ, xếp hạng và lịch sử vẫn ngoài phạm vi.
+
+## Sửa lỗi về Home nhưng server vẫn giữ trong phòng
+
+- Client hiện gửi LEAVE_ROOM và chờ server xác nhận trước khi đi từ phòng/kết quả sang Home hoặc các trang ngoài phòng. Bấm lặp lúc đang chờ không gửi nhiều lệnh rời.
+- QUIT_GAME/LEAVE_ROOM báo lỗi thật: giữ thông tin phòng và báo lỗi để thử lại; không xóa state local rồi giả vờ đã ra ngoài. NOT_PLAYING khi trận đã kết thúc và NOT_IN_ROOM khi server xác nhận đã ra ngoài được xử lý idempotent.
+- Chỉ sau xác nhận rời phòng mới chuyển self về IDLE. Bỏ snapshot phòng vừa rời và GAME_END đến muộn khi không còn ở màn chơi; vẫn cho phép vào lại phòng bằng lời mời mới.
+- Đã kiểm tra MainFrame/Swing và SocketGameClient thật qua TCP: chờ ACK, lỗi và retry, bấm điều hướng lặp, sự kiện muộn và nhận lời mời mới. Kiểm tra end-to-end riêng với backend thật trên MySQL disposable xác nhận membership được dọn, tạo phòng mới và accept lời mời đều thành công.
+- Để dùng bản sửa: build lại và đóng/mở lại client. Phiên cũ đang kẹt nên đăng xuất hoặc đóng client để server dọn session; không cần xóa DB/schema hoặc khởi động lại server chỉ vì lỗi điều hướng này.

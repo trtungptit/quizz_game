@@ -10,6 +10,8 @@ import quizgame.server.service.OnlineRegistry;
 import quizgame.server.service.RoomManager;
 import quizgame.server.service.ServiceException;
 import quizgame.server.service.QuestionSetService;
+import quizgame.server.service.GameManager;
+import quizgame.common.model.Answer;
 
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -27,6 +29,7 @@ public final class ClientHandler implements Runnable {
     private final RoomManager rooms;
     private final InviteManager invites;
     private final QuestionSetService questionSets;
+    private final GameManager games;
     private final AtomicReference<ClientSession> sessionRef = new AtomicReference<>();
 
     public ClientHandler(Socket socket, AuthService auth, OnlineRegistry online) { this(socket, auth, online, null, null); }
@@ -43,6 +46,7 @@ public final class ClientHandler implements Runnable {
         this.rooms = rooms;
         this.invites = invites;
         this.questionSets = questionSets;
+        this.games=rooms==null?null:rooms.games();
     }
 
     @Override public void run() {
@@ -131,6 +135,45 @@ public final class ClientHandler implements Runnable {
                 sendSetResponse(session, type, reqId, questionSets.get(id));
                 return;
             }
+            if(games!=null&&"START_GAME".equals(type)){
+                requireNull(data);games.start(session,reqId);return;
+            }
+            if(games!=null&&"QUIT_GAME".equals(type)){
+                requireNull(data);games.quit(session,false);session.send(ProtocolMessages.response(type,reqId,null,null));return;
+            }
+            if(games!=null&&"ANSWER".equals(type)){
+                var fields=requireFields(data,"qIndex","answer");int index=requireInt(fields.get("qIndex"));
+                if(index<0)throw new IllegalArgumentException();
+                var answer=requireFields(fields.get("answer"),"choices","text");
+                java.util.List<Integer> choices=new java.util.ArrayList<>();
+                if(!answer.get("choices").isJsonNull()){
+                    if(!answer.get("choices").isJsonArray()||answer.getAsJsonArray("choices").size()>4)throw new IllegalArgumentException();
+                    for(var choice:answer.getAsJsonArray("choices"))choices.add(requireInt(choice));
+                }
+                String text=answer.get("text").isJsonNull()?null:requireString(answer,"text");
+                games.answer(session,index,new Answer(java.util.List.copyOf(choices),text),reqId);return;
+            }
+            if (rooms != null && "SET_READY".equals(type)) {
+                var fields=requireFields(data,"ready");var value=fields.get("ready");
+                if(!value.isJsonPrimitive()||!value.getAsJsonPrimitive().isBoolean())throw new IllegalArgumentException();
+                var state=rooms.ready(session,value.getAsBoolean());
+                session.send(ProtocolMessages.response(type,reqId,null,null));rooms.publish(state);return;
+            }
+            if (rooms != null && "REMIND_READY".equals(type)) {
+                requireNull(data);rooms.remind(session);session.send(ProtocolMessages.response(type,reqId,null,null));return;
+            }
+            if(rooms!=null&&"KICK".equals(type)){
+                var fields=requireFields(data,"username");var state=rooms.kick(session,requireString(fields,"username"));
+                session.send(ProtocolMessages.response(type,reqId,null,null));rooms.publish(state);return;
+            }
+            if(rooms!=null&&"ROOM_CONFIG".equals(type)){
+                var fields=requireFields(data,"setId","numQuestions","timeOverrideSeconds");
+                Long setId=fields.get("setId").isJsonNull()?null:requireRequestId(fields.get("setId"));
+                int count=requireInt(fields.get("numQuestions"));
+                Integer seconds=fields.get("timeOverrideSeconds").isJsonNull()?null:requireInt(fields.get("timeOverrideSeconds"));
+                var state=rooms.configure(session,setId,count,seconds);
+                session.send(ProtocolMessages.response(type,reqId,null,null));rooms.publish(state);return;
+            }
             if (rooms != null && "CREATE_ROOM".equals(type)) {
                 JsonObject fields = requireFields(data, "name");
                 var state = rooms.create(session, requireString(fields, "name"));
@@ -217,6 +260,10 @@ public final class ClientHandler implements Runnable {
         } catch (ArithmeticException ex) { throw new IllegalArgumentException(); }
     }
 
+    private static int requireInt(JsonElement value){
+        if(value==null||!value.isJsonPrimitive()||!value.getAsJsonPrimitive().isNumber())throw new IllegalArgumentException();
+        try{return value.getAsBigDecimal().intValueExact();}catch(ArithmeticException ex){throw new IllegalArgumentException();}
+    }
     private static void requireNull(JsonElement value) {
         if (value != null && !value.isJsonNull()) throw new IllegalArgumentException();
     }

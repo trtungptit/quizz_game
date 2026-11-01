@@ -5,6 +5,7 @@ import quizgame.server.service.OnlineRegistry;
 import quizgame.server.service.RoomManager;
 import quizgame.server.service.InviteManager;
 import quizgame.server.service.QuestionSetService;
+import quizgame.server.service.GameManager;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -25,6 +26,7 @@ public final class QuizServer implements AutoCloseable {
     private final RoomManager rooms;
     private final InviteManager invites;
     private final QuestionSetService questionSets;
+    private final GameManager games;
     // Handler giữ socket suốt phiên: không xếp socket thứ 9 vào hàng đợi sau 8 phiên đang mở.
     private final ThreadPoolExecutor handlers = new ThreadPoolExecutor(0, 32, 30, TimeUnit.SECONDS,
             new SynchronousQueue<>(), runnable -> {
@@ -54,6 +56,7 @@ public final class QuizServer implements AutoCloseable {
         this.rooms = rooms;
         this.invites = invites;
         this.questionSets = questionSets;
+        this.games=rooms==null?null:rooms.games();
         serverSocket = new ServerSocket();
         serverSocket.setReuseAddress(true);
         serverSocket.bind(new InetSocketAddress(host, port), 50);
@@ -91,6 +94,7 @@ public final class QuizServer implements AutoCloseable {
     @Override public synchronized void close() {
         if (!running.compareAndSet(true, false) && serverSocket.isClosed()) return;
         try { serverSocket.close(); } catch (IOException ignored) { }
+        if (games != null) games.close();
         if (invites != null) invites.close();
         for (Socket socket : clients) try { socket.close(); } catch (IOException ignored) { }
         handlers.shutdownNow();

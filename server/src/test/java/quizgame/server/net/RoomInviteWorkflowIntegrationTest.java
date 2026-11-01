@@ -274,6 +274,7 @@ class RoomInviteWorkflowIntegrationTest {
         final QuizServer server;
         final OnlineRegistry online=new OnlineRegistry();
         final InviteManager invites;
+        final GameManager games;
         final List<Peer> peers=new ArrayList<>();
         final List<String> names=new ArrayList<>();
         Fixture(int count)throws Exception{
@@ -281,6 +282,7 @@ class RoomInviteWorkflowIntegrationTest {
             AccountDao accounts=new AccountDao();RoomDao dao=new RoomDao();
             AuthService auth=new AuthService(db,accounts,new PasswordHasher());
             RoomManager rooms=new RoomManager(db,dao,online);
+            games=rooms.games();
             invites=new InviteManager(db,accounts,new InvitationDao(),dao,online,rooms);
             server=new QuizServer("127.0.0.1",0,auth,online,rooms,invites);server.start();
             String prefix="ri_"+UUID.randomUUID().toString().substring(0,8);

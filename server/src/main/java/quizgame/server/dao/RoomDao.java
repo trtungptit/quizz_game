@@ -9,7 +9,7 @@ import java.util.*;
 /** SQL thao tác phòng và membership; caller sở hữu transaction Connection. */
 public final class RoomDao {
     public record RoomRow(long id, String code, String name, long hostId, String host, String status,
-                          int numQuestions, Integer timeOverrideSeconds) { }
+                          int numQuestions, Integer timeOverrideSeconds, Long setId) { }
 
     public long create(Connection c, String code, String name, long hostId) throws SQLException {
         try (PreparedStatement s = c.prepareStatement("INSERT INTO rooms(room_code,name,host_id,status,num_questions) VALUES(?,?,?,'waiting',0)", Statement.RETURN_GENERATED_KEYS)) {
@@ -32,7 +32,7 @@ public final class RoomDao {
         return find(c, "r.room_id=?", id, lock);
     }
     private Optional<RoomRow> find(Connection c, String condition, Object value, boolean lock) throws SQLException {
-        String sql = "SELECT r.room_id,r.room_code,r.name,r.host_id,u.username,r.status,r.num_questions,r.time_override_seconds "
+        String sql = "SELECT r.room_id,r.room_code,r.name,r.host_id,u.username,r.status,r.num_questions,r.time_override_seconds,r.set_id "
                 + "FROM rooms r JOIN users u ON u.user_id=r.host_id WHERE " + condition + (lock ? " FOR UPDATE" : "");
         try (PreparedStatement s = c.prepareStatement(sql)) {
             if (value instanceof String text) s.setString(1,text); else s.setLong(1,(Long)value);
@@ -40,7 +40,8 @@ public final class RoomDao {
                 if (!rs.next()) return Optional.empty();
                 int seconds=rs.getInt("time_override_seconds");
                 Integer override=rs.wasNull()?null:seconds;
-                return Optional.of(new RoomRow(rs.getLong("room_id"),rs.getString("room_code"),rs.getString("name"),rs.getLong("host_id"),rs.getString("username"),rs.getString("status"),rs.getInt("num_questions"),override));
+                Long setId=rs.getObject("set_id")==null?null:rs.getLong("set_id");
+                return Optional.of(new RoomRow(rs.getLong("room_id"),rs.getString("room_code"),rs.getString("name"),rs.getLong("host_id"),rs.getString("username"),rs.getString("status"),rs.getInt("num_questions"),override,setId));
             }
         }
     }
@@ -84,8 +85,14 @@ public final class RoomDao {
             s.setLong(1,roomId);try(ResultSet r=s.executeQuery()){while(r.next())out.add(r.getString(1));}
         }return List.copyOf(out);
     }
+    public void setReady(Connection c,long roomId,long userId,boolean ready) throws SQLException {
+        try(var s=c.prepareStatement("UPDATE room_members SET ready=? WHERE room_id=? AND user_id=? AND left_at IS NULL")){
+            s.setBoolean(1,ready);s.setLong(2,roomId);s.setLong(3,userId);s.executeUpdate();
+        }
+    }
     public RoomState snapshot(Connection c,RoomRow room) throws SQLException {
-        return new RoomState(room.code(),room.name(),room.host(),members(c,room.id()),pendingInvitees(c,room.id()),null,room.numQuestions(),room.timeOverrideSeconds(),"playing".equals(room.status())?RoomPhase.PLAYING:RoomPhase.WAITING);
+        var set=room.setId()==null?null:new QuestionSetDao().summary(c,room.setId()).orElse(null);
+        return new RoomState(room.code(),room.name(),room.host(),members(c,room.id()),pendingInvitees(c,room.id()),set,room.numQuestions(),room.timeOverrideSeconds(),"playing".equals(room.status())?RoomPhase.PLAYING:RoomPhase.WAITING);
     }
     private Long earliestActive(Connection c,long roomId) throws SQLException {
         try(PreparedStatement s=c.prepareStatement("SELECT user_id FROM room_members WHERE room_id=? AND left_at IS NULL ORDER BY joined_at,user_id LIMIT 1")) {

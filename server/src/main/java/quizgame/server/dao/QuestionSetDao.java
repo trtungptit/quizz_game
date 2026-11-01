@@ -87,6 +87,16 @@ public final class QuestionSetDao {
         }
     }
 
+    public Optional<QuestionSetSummary> summary(Connection c,long id) throws SQLException {
+        try(var s=c.prepareStatement("SELECT s.title,s.topic,u.username,COUNT(q.question_id),GROUP_CONCAT(DISTINCT q.type),MAX(CASE WHEN q.image_ref IS NOT NULL AND q.image_ref<>'' THEN 1 ELSE 0 END) FROM question_sets s JOIN users u ON u.user_id=s.owner_id LEFT JOIN questions q ON q.set_id=s.set_id WHERE s.set_id=? AND s.deleted_at IS NULL AND s.visibility='public' AND s.publish_status='published' GROUP BY s.set_id,s.title,s.topic,u.username")){
+            s.setLong(1,id);try(var r=s.executeQuery()){
+                if(!r.next())return Optional.empty();
+                EnumSet<QuestionType> types=EnumSet.noneOf(QuestionType.class);
+                if(r.getString(5)!=null)for(String t:r.getString(5).split(","))types.add(QuestionType.valueOf(t));
+                return Optional.of(new QuestionSetSummary(id,r.getString(1),r.getString(2),r.getString(3),r.getInt(4),List.copyOf(types),r.getBoolean(6)));
+            }
+        }
+    }
     public List<QuestionSetSummary> list(Connection connection) throws SQLException {
         String sql = "SELECT s.set_id,s.title,s.topic,u.username,q.question_id,q.type,q.image_ref "
                 + "FROM question_sets s JOIN users u ON u.user_id=s.owner_id "

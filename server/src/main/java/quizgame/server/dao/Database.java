@@ -19,7 +19,16 @@ public final class Database {
     public Database(ServerConfig config) { this.config = Objects.requireNonNull(config); }
 
     public Connection openConnection() throws SQLException {
-        return DriverManager.getConnection(config.databaseUrl(), config.databaseUser(), config.databasePassword());
+        return DriverManager.getConnection(config.databaseUrl(), connectionProperties(config));
+    }
+
+    static java.util.Properties connectionProperties(ServerConfig config) {
+        var properties=new java.util.Properties();
+        properties.setProperty("user",config.databaseUser());
+        properties.setProperty("password",config.databasePassword());
+        properties.setProperty("connectTimeout","5000");
+        properties.setProperty("socketTimeout","5000");
+        return properties;
     }
 
     public synchronized void verifySchemaAndAcquireLock() throws SQLException {
