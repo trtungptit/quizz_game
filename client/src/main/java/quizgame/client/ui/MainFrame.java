@@ -2,6 +2,7 @@ package quizgame.client.ui;
 
 import quizgame.client.net.GameClient;
 import quizgame.client.net.GameEventListener;
+import quizgame.client.net.GameException;
 import quizgame.client.ui.component.OnlineUsersModel;
 import quizgame.client.ui.dialog.InviteDialog;
 import quizgame.client.ui.screen.GamePanel;
@@ -24,6 +25,7 @@ import quizgame.common.model.QuestionSetSummary;
 import quizgame.common.model.RoomState;
 import quizgame.common.model.ScoreRow;
 import quizgame.common.model.UserInfo;
+import quizgame.common.model.UserStatus;
 
 import javax.swing.JComponent;
 import javax.swing.JFrame;
@@ -70,6 +72,9 @@ public class MainFrame extends JFrame {
 
     private volatile String currentKey;
     private RoomState currentRoom;
+    private boolean roomExitPending;
+    private long sessionEpoch;
+    private String departedRoomCode;
 
     public MainFrame(GameClient client) {
         this(client, Preferences.userNodeForPackage(LoginPanel.class));
@@ -163,7 +168,58 @@ public class MainFrame extends JFrame {
 
     /** Chuyển màn; nếu màn hiện tại còn thay đổi chưa lưu thì hỏi trước. */
     public void showScreen(String key) {
-        switchTo(key, false);
+        navigate(key, null);
+    }
+
+    private void navigate(String key, Runnable after) {
+        if (roomExitPending) return;
+        if (currentRoom != null && !ROOM.equals(key) && !GAME.equals(key) && !RESULT.equals(key)) {
+            Screen old = screenOf(currentKey);
+            if (old != null && !old.canLeave()) return;
+            leaveAndNavigate(key, after);
+        } else {
+            switchTo(key, false);
+            if (key.equals(currentKey) && after != null) after.run();
+        }
+    }
+
+    /** Chỉ bỏ state phòng khi server đã ACK; bấm lặp trong lúc chờ không gửi lệnh trùng. */
+    private void leaveAndNavigate(String key, Runnable after) {
+        leaveAndNavigate(key, after, GAME.equals(currentKey));
+    }
+
+    private void leaveAndNavigate(String key, Runnable after, boolean quitFirst) {
+        if (roomExitPending) return;
+        roomExitPending = true;
+        long epoch = sessionEpoch;
+        CompletableFuture<Void> readyToLeave = quitFirst
+                ? tolerate(client.quitGame(), "NOT_PLAYING")
+                : CompletableFuture.completedFuture(null);
+        CompletableFuture<Void> leaving = readyToLeave.thenCompose(v -> tolerate(client.leaveRoom(), "NOT_IN_ROOM"));
+        Async.ui(leaving, v -> {
+            if (epoch != sessionEpoch) return;
+            roomExitPending = false;
+            clearRoomState();
+            switchTo(key, true);
+            if (after != null) after.run();
+        }, error -> {
+            if (epoch != sessionEpoch) return;
+            roomExitPending = false;
+            Dialogs.error(this, error);
+        });
+    }
+
+    private static CompletableFuture<Void> tolerate(CompletableFuture<Void> future, String code) {
+        return future.handle((v, error) -> {
+            if (error == null) return null;
+            Throwable cause = error;
+            while ((cause instanceof java.util.concurrent.CompletionException
+                    || cause instanceof java.util.concurrent.ExecutionException) && cause.getCause() != null) {
+                cause = cause.getCause();
+            }
+            if (cause instanceof GameException e && code.equals(e.code())) return null;
+            throw new java.util.concurrent.CompletionException(cause);
+        });
     }
 
     private void switchTo(String key, boolean force) {
@@ -201,6 +257,7 @@ public class MainFrame extends JFrame {
             roomPanel.reset();
         }
         currentRoom = room;
+        if (room.code().equals(departedRoomCode)) departedRoomCode = null;
         roomPanel.render(room);
         switchTo(ROOM, true);
     }
@@ -236,40 +293,42 @@ public class MainFrame extends JFrame {
 
     /** Mở màn soạn bộ câu hỏi: id null = tạo mới, ngược lại tải bộ về để sửa (có trạng thái chờ). */
     public void openSetEditor(Long id) {
-        showScreen(SET_EDITOR);
-        if (!SET_EDITOR.equals(currentKey)) {
-            return; // người dùng chọn ở lại màn trước
-        }
-        if (id == null) {
-            setEditorPanel.startNew();
-        } else {
-            setEditorPanel.loadRemote(id);
-        }
+        navigate(SET_EDITOR, () -> {
+            if (id == null) setEditorPanel.startNew();
+            else setEditorPanel.loadRemote(id);
+        });
     }
 
     /** Rời phòng: gọi leaveRoom() rồi về HOME. */
     public void leaveRoom() {
-        Async.ui(client.leaveRoom(), v -> goHomeFromRoom(), error -> Dialogs.error(this, error));
+        leaveAndNavigate(HOME, null);
     }
 
-    /** Thoát giữa trận (bị xử thua): quitGame() rồi leaveRoom(), lỗi của hai bước này không chặn việc về HOME. */
+    /** Không coi rời phòng thành công khi QUIT_GAME/LEAVE_ROOM thất bại. */
     public void leaveGame() {
-        client.quitGame().handle((v, e) -> (Void) null)
-                .thenCompose(v -> client.leaveRoom().handle((x, e) -> (Void) null))
-                .whenComplete((v, e) -> SwingUtilities.invokeLater(this::goHomeFromRoom));
+        leaveAndNavigate(HOME, null, true);
     }
 
     private void goHomeFromRoom() {
+        clearRoomState();
+        switchTo(HOME, true);
+    }
+
+    private void clearRoomState() {
+        if (currentRoom != null) departedRoomCode = currentRoom.code();
         currentRoom = null;
+        UserInfo self = onlineUsers.self();
+        if (self != null) onlineUsers.setSelf(new UserInfo(self.username(), self.totalWins(), UserStatus.IDLE));
         onlineUsers.clearInvited();
         roomPanel.reset();
         gamePanel.end();
-        switchTo(HOME, true);
     }
 
     // ---------------------------------------------------------------- Đăng nhập, đăng xuất, mất kết nối
 
     private void onLoggedIn(UserInfo user) {
+        sessionEpoch++;
+        roomExitPending = false;
         onlineUsers.setSelf(user);
         switchTo(HOME, true);
     }
@@ -292,6 +351,9 @@ public class MainFrame extends JFrame {
     }
 
     private void backToLogin() {
+        sessionEpoch++;
+        roomExitPending = false;
+        departedRoomCode = null;
         onlineUsers.clear();
         currentRoom = null;
         roomPanel.reset();
@@ -319,7 +381,7 @@ public class MainFrame extends JFrame {
         @Override
         public void onInviteReceived(Invite invite) {
             SwingUtilities.invokeLater(() -> {
-                if (!GAME.equals(currentKey)) {
+                if (!GAME.equals(currentKey) && !roomExitPending && currentRoom == null) {
                     inviteDialog.enqueue(invite);
                 }
             });
@@ -336,6 +398,8 @@ public class MainFrame extends JFrame {
         @Override
         public void onRoomState(RoomState room) {
             SwingUtilities.invokeLater(() -> {
+                if (room.code().equals(departedRoomCode)
+                        || room.members().stream().noneMatch(m -> m.username().equals(username()))) return;
                 currentRoom = room;
                 roomPanel.render(room);
             });
@@ -387,6 +451,7 @@ public class MainFrame extends JFrame {
         @Override
         public void onGameEnd(MatchResult result) {
             SwingUtilities.invokeLater(() -> {
+                if (currentRoom == null || !GAME.equals(currentKey)) return;
                 int total = gamePanel.totalQuestions();
                 gamePanel.end();
                 resultPanel.show(result, total);

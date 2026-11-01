@@ -50,6 +50,10 @@ class MainFrameFlowTest {
     private final Gson gson = new Gson();
     private final List<Envelope> requests = new CopyOnWriteArrayList<>();
     private volatile boolean wrongPassword;
+    private volatile boolean delayLeave;
+    private volatile String leaveFailure;
+    private volatile String quitFailure;
+    private volatile Envelope pendingLeave;
     private ServerSocket serverSocket;
     private volatile Socket serverSide;
     private volatile DataOutputStream out;
@@ -117,12 +121,26 @@ class MainFrameFlowTest {
             case "SET_LIST" -> reply(req, "[]");
             case "SET_GET" -> reply(req, SET_GET);
             case "INVITE_REPLY", "CREATE_ROOM" -> reply(req, ROOM);
+            case "LEAVE_ROOM" -> {
+                if (leaveFailure != null) failReply(req, leaveFailure, "Không thể rời phòng thử nghiệm");
+                else if (delayLeave) pendingLeave = req;
+                else reply(req, "null");
+            }
+            case "QUIT_GAME" -> {
+                if (quitFailure != null) failReply(req, quitFailure, "Không thể thoát trận thử nghiệm");
+                else reply(req, "null");
+            }
             default -> reply(req, "null");
         }
     }
 
     private synchronized void send(String json) throws IOException {
         FramedIO.write(out, json);
+    }
+
+    private void failReply(Envelope req, String code, String message) throws IOException {
+        send("{\"type\":\"" + req.type() + "\",\"reqId\":" + req.reqId()
+                + ",\"ok\":false,\"error\":{\"code\":\"" + code + "\",\"message\":\"" + message + "\"}}");
     }
 
     private void reply(Envelope req, String data) throws IOException {
@@ -190,6 +208,99 @@ class MainFrameFlowTest {
     }
 
     // ---------------------------------------------------------------- Các tình huống
+
+    private void enterResult() throws Exception {
+        login("123456");
+        waitFor("đăng nhập", () -> MainFrame.HOME.equals(screen()));
+        onEdt(() -> frame.createRoomAndEnter("Phòng thử", null, null, null));
+        waitFor("vào phòng", () -> MainFrame.ROOM.equals(screen()));
+        push("{\"type\":\"GAME_START\",\"data\":{\"numQuestions\":1,\"imagesBase64\":{}}}");
+        push("{\"type\":\"GAME_END\",\"data\":{\"matchId\":1,\"winner\":null,\"draw\":true,\"rows\":[]}}");
+        push("{\"type\":\"ROOM_STATE\",\"data\":" + ROOM + "}");
+        push("{\"type\":\"USER_UPDATE\",\"data\":{\"user\":{\"username\":\"binh\",\"totalWins\":4,\"status\":\"IN_ROOM\"},\"change\":\"UPDATE\"}}");
+        waitFor("kết quả", () -> MainFrame.RESULT.equals(screen()));
+    }
+
+    private void clickHomeNavigation() throws Exception {
+        onEdt(() -> {
+            List<Component> labels = new ArrayList<>();
+            collect(frame.getContentPane(), JLabel.class, labels);
+            JLabel home = labels.stream().map(c -> (JLabel)c).filter(l -> "TRANG CHỦ".equals(l.getText())).findFirst().orElseThrow();
+            var event = new java.awt.event.MouseEvent(home, java.awt.event.MouseEvent.MOUSE_CLICKED,
+                    System.currentTimeMillis(), 0, 1, 1, 1, false);
+            for (var listener : home.getMouseListeners()) listener.mouseClicked(event);
+        });
+    }
+
+    @Test
+    void navigationAfterResultWaitsForLeaveAcknowledgement() throws Exception {
+        enterResult(); delayLeave = true;
+        clickHomeNavigation();
+        waitFor("LEAVE_ROOM trước khi về Home", () -> pendingLeave != null);
+        assertEquals(MainFrame.RESULT, screen());
+        assertNotNull(frame.currentRoom());
+        clickHomeNavigation();
+        assertEquals(1L, requests.stream().filter(r -> "LEAVE_ROOM".equals(r.type())).count());
+        reply(pendingLeave, "null");
+        waitFor("về Home sau ACK", () -> MainFrame.HOME.equals(screen()));
+        assertEquals(null, frame.currentRoom());
+    }
+
+    @Test
+    void lateRoomEventsAfterLeaveCannotRestoreOldMembershipAndNewInviteStillWorks() throws Exception {
+        enterResult(); clickHomeNavigation();
+        waitFor("rời phòng", () -> MainFrame.HOME.equals(screen()));
+        push("{\"type\":\"ROOM_STATE\",\"data\":" + ROOM + "}");
+        push("{\"type\":\"GAME_END\",\"data\":{\"matchId\":1,\"winner\":null,\"draw\":true,\"rows\":[]}}");
+        client.listSets().get(2, java.util.concurrent.TimeUnit.SECONDS);
+        onEdt(() -> { });
+        assertEquals(MainFrame.HOME, screen());
+        assertEquals(null, frame.currentRoom());
+        push("{\"type\":\"INVITE_RECEIVED\",\"data\":{\"id\":99,\"fromUser\":\"an\",\"roomCode\":\"ABC234\",\"roomName\":\"P\",\"expiresInMs\":5000}}");
+        waitFor("lời mời mới sau khi ra ngoài", () -> inviteDialog() != null);
+        onEdt(() -> buttons(inviteDialog().getContentPane(), "ĐỒNG Ý").get(0).doClick());
+        waitFor("vào lại qua lời mời", () -> MainFrame.ROOM.equals(screen()));
+        assertEquals("ABC234", frame.currentRoom().code());
+        push("{\"type\":\"GAME_END\",\"data\":{\"matchId\":1,\"winner\":null,\"draw\":true,\"rows\":[]}}");
+        client.listSets().get(2, java.util.concurrent.TimeUnit.SECONDS);
+        onEdt(() -> { });
+        assertEquals(MainFrame.ROOM, screen());
+    }
+
+    @Test
+    void failedLeaveKeepsMembershipUntilRetrySucceedsEvenIfGameAlreadyEnded() throws Exception {
+        enterResult(); quitFailure = "NOT_PLAYING"; leaveFailure = "INTERNAL";
+        onEdt(frame::leaveGame);
+        waitFor("lỗi rời phòng", () -> findDialogWithText("Không thể rời phòng thử nghiệm") != null);
+        assertEquals(MainFrame.RESULT, screen());
+        assertNotNull(frame.currentRoom());
+        onEdt(() -> findDialogWithText("Không thể rời phòng thử nghiệm").dispose());
+        leaveFailure = null;
+        onEdt(frame::leaveGame);
+        waitFor("thử lại rời phòng", () -> MainFrame.HOME.equals(screen()));
+        assertEquals(null, frame.currentRoom());
+        assertEquals(quizgame.common.model.UserStatus.IDLE, frame.onlineUsers().self().status());
+    }
+
+    @Test
+    void alreadyLeftOnServerCanBeReconciledWithoutKeepingPhantomLocalRoom() throws Exception {
+        enterResult(); leaveFailure = "NOT_IN_ROOM";
+        clickHomeNavigation();
+        waitFor("server xác nhận không còn ở phòng", () -> MainFrame.HOME.equals(screen()));
+        assertEquals(null, frame.currentRoom());
+        assertEquals(quizgame.common.model.UserStatus.IDLE, frame.onlineUsers().self().status());
+    }
+
+    @Test
+    void quitFailureDoesNotContinueToLeaveOrClearRoomState() throws Exception {
+        enterResult(); quitFailure = "INTERNAL";
+        onEdt(frame::leaveGame);
+        waitFor("lỗi thoát trận", () -> findDialogWithText("Không thể thoát trận thử nghiệm") != null);
+        assertEquals(MainFrame.RESULT, screen());
+        assertNotNull(frame.currentRoom());
+        assertTrue(!sawRequest("LEAVE_ROOM"));
+        onEdt(() -> findDialogWithText("Không thể thoát trận thử nghiệm").dispose());
+    }
 
     @Test
     void wrongPasswordShowsServerMessageAndStaysOnLogin() throws Exception {

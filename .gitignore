@@ -10,6 +10,9 @@ dependency-reduced-pom.xml
 .project
 .settings/
 *.log
+.hermes
+# Cấu hình cục bộ; không commit secrets
+.env
 
 # Hệ điều hành
 .DS_Store
