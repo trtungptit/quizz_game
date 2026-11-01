@@ -31,23 +31,23 @@ quiz-game/
 │   │   └── util/                    # CsvTemplate, CsvImporter, ImageUtil, ImportResult
 │   ├── src/main/resources/          # icon, font (nếu có)
 │   └── src/test/java/quizgame/client/   # test; server giả CHỈ được đặt ở đây
-└── server/                          # BACKEND (người dùng làm sau, chưa đụng tới)
+└── server/                          # BACKEND; chỉ triển khai theo phạm vi được giao
     └── src/main/java/quizgame/server/
         ├── ServerApp.java
         ├── net/                     # ServerSocket, ClientHandler
         ├── service/                 # Auth, Presence, Invite, Room, Game, QuestionSet, Stats
         └── dao/                     # JDBC tới cơ sở dữ liệu
 ```
-Lớp mới phải đặt đúng thư mục trên. Thư mục `server` chỉ tạo khung rỗng ở P1.
+Lớp mới phải đặt đúng thư mục trên. Kế hoạch đã giao tài khoản/hiện diện, đọc bộ câu hỏi (`SET_LIST`, `SET_GET`) và hoàn thiện tạo/vào/rời phòng, lời mời. CRUD bộ, ready/remind/kick/config và gameplay vẫn nằm ngoài kế hoạch hiện tại.
 
 ## Quy tắc làm việc
-1. Đang làm FRONTEND (module `client`). Backend (module `server`) do người dùng làm sau, không tự viết trừ khi được yêu cầu.
+1. Không tự ý sửa `client`; backend `server` chỉ làm theo phạm vi được giao và kế hoạch đã duyệt. Lượt phòng/lời mời không đồng nghĩa được triển khai gameplay hoặc mọi thao tác quản trị phòng.
 2. KHÔNG tạo dữ liệu giả, lớp Fake, hay mock trong code chạy thật. Mọi dữ liệu đến từ Server qua `SocketGameClient`. Danh sách rỗng thì hiện
    trạng thái rỗng (chữ hướng dẫn), chưa tải xong thì hiện 'Đang tải...', lỗi thì hiện lỗi và nút Thử lại.
    Chỉ được dùng server giả bên trong thư mục test (`src/test`) để kiểm thử.
 3. Không đổi tên lớp, tên trường, tên `type` đã ghi trong tài liệu. Muốn đổi thì dừng lại và hỏi người dùng.
 4. Mọi cập nhật giao diện từ callback mạng phải qua `SwingUtilities.invokeLater`. Không bao giờ đọc/ghi socket trên luồng giao diện.
-5. Chỉ dùng thư viện: FlatLaf, Gson (>= 2.10.1), JUnit 5. Không thêm thư viện khác khi chưa được cho phép.
+5. Client chỉ dùng FlatLaf, Gson (>= 2.10.1), JUnit 5. Server được dùng JDBC và MySQL Connector/J đã được duyệt; không thêm thư viện khác nếu chưa được phép.
 6. Chữ trên giao diện bằng tiếng Việt, có dấu. Comment trong code bằng tiếng Việt, ngắn gọn.
 7. Sau mỗi bước: build được (`mvn -q -DskipTests package`), chạy được, nói rõ cách kiểm tra bằng tay, rồi gợi ý lệnh `git commit`.
 8. Khi ảnh mockup và chữ trong tài liệu khác nhau: ảnh quyết định bố cục, chữ quyết định hành vi.
