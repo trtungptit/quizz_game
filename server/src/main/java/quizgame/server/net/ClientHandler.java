@@ -4,7 +4,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import quizgame.common.protocol.ErrorInfo;
-import quizgame.server.dao.StatisticsDao;
 import quizgame.server.service.AuthService;
 import quizgame.server.service.InviteManager;
 import quizgame.server.service.OnlineRegistry;
@@ -30,7 +29,6 @@ public final class ClientHandler implements Runnable {
     private final RoomManager rooms;
     private final InviteManager invites;
     private final QuestionSetService questionSets;
-    private final StatisticsDao statistics;
     private final GameManager games;
     private final AtomicReference<ClientSession> sessionRef = new AtomicReference<>();
 
@@ -42,12 +40,6 @@ public final class ClientHandler implements Runnable {
 
     public ClientHandler(Socket socket, AuthService auth, OnlineRegistry online, RoomManager rooms,
                          InviteManager invites, QuestionSetService questionSets) {
-        this(socket, auth, online, rooms, invites, questionSets, null);
-    }
-
-    public ClientHandler(Socket socket, AuthService auth, OnlineRegistry online, RoomManager rooms,
-                         InviteManager invites, QuestionSetService questionSets, StatisticsDao statistics) {
-        this.statistics = statistics;
         this.socket = socket;
         this.auth = auth;
         this.online = online;
@@ -119,24 +111,6 @@ public final class ClientHandler implements Runnable {
                 finally { Arrays.fill(password, '\0'); }
                 return;
             }
-            if (statistics != null && ("LEADERBOARD".equals(type) || "HISTORY".equals(type)
-                    || "HISTORY_DETAIL".equals(type))) {
-                if (!online.isAuthenticated(session)) {
-                    replyError(session, type, reqId, "NOT_LOGGED_IN", "Bạn cần đăng nhập trước");
-                    return;
-                }
-                long userId = online.userId(session);
-                Object result;
-                if ("HISTORY_DETAIL".equals(type)) {
-                    var fields = requireFields(data, "matchId");
-                    result = statistics.detail(userId, requireRequestId(fields.get("matchId")));
-                } else {
-                    requireNull(data);
-                    result = "HISTORY".equals(type) ? statistics.history(userId) : statistics.leaderboard(userId);
-                }
-                sendSetResponse(session, type, reqId, result);
-                return;
-            }
             synchronized (online) {
             if (!online.isAuthenticated(session)) {
                 replyError(session, type, reqId, "NOT_LOGGED_IN", "Bạn cần đăng nhập trước");
@@ -159,6 +133,29 @@ public final class ClientHandler implements Runnable {
                 JsonObject fields = requireFields(data, "id");
                 long id = requireRequestId(fields.get("id"));
                 sendSetResponse(session, type, reqId, questionSets.get(id));
+                return;
+            }
+            if (questionSets != null && "SET_CREATE".equals(type)) {
+                var fields = requireFields(data, "set");
+                var set = QuestionSetRequest.parse(fields.get("set"));
+                long id = questionSets.create(online.userId(session), online.username(session), set);
+                sendSetResponse(session, type, reqId, java.util.Map.of("id", id));
+                return;
+            }
+            if (questionSets != null && "SET_UPDATE".equals(type)) {
+                var fields = requireFields(data, "set");
+                var set = QuestionSetRequest.parse(fields.get("set"));
+                var changed = questionSets.update(online.userId(session), online.username(session), set);
+                session.send(ProtocolMessages.response(type, reqId, null, null));
+                if (rooms != null) changed.forEach(rooms::publish);
+                return;
+            }
+            if (questionSets != null && "SET_DELETE".equals(type)) {
+                var fields = requireFields(data, "id");
+                long id = requireRequestId(fields.get("id"));
+                var changed = questionSets.delete(online.userId(session), id);
+                session.send(ProtocolMessages.response(type, reqId, null, null));
+                if (rooms != null) changed.forEach(rooms::publish);
                 return;
             }
             if(games!=null&&"START_GAME".equals(type)){
@@ -249,8 +246,6 @@ public final class ClientHandler implements Runnable {
             }
             replyError(session, type, reqId, "BAD_REQUEST", "Chức năng này chưa được triển khai ở Server");
             }
-        } catch (java.sql.SQLException ex) {
-            replyError(session, type, reqId, "INTERNAL", "Không thể tải dữ liệu thống kê");
         } catch (ServiceException ex) {
             replyError(session, type, reqId, ex.code(), ex.getMessage());
         } catch (IllegalArgumentException ex) {

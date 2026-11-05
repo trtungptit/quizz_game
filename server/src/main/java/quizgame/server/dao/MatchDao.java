@@ -12,15 +12,21 @@ public final class MatchDao {
     public record Participant(long id,String username){}
     public record Started(long id,long roundId,List<Long> roundQuestions){}
     public List<GameQuestion> load(Connection c,long setId,int count)throws SQLException{
-        var stored=new QuestionSetDao().get(c,setId).orElseThrow(()->new ServiceException("SET_NOT_FOUND","Không tìm thấy bộ câu hỏi"));
+        // Giữ phiên bản bộ ổn định từ lúc đọc câu tới khi tạo round.
+        try(var s=c.prepareStatement("SELECT set_id FROM question_sets WHERE set_id=? AND deleted_at IS NULL FOR UPDATE")){
+            s.setLong(1,setId);try(var r=s.executeQuery()){
+                if(!r.next())throw new ServiceException("SET_NOT_FOUND","Không tìm thấy bộ câu hỏi");
+            }
+        }
+        var stored=new QuestionSetDao().get(c,setId,true).orElseThrow(()->new ServiceException("SET_NOT_FOUND","Không tìm thấy bộ câu hỏi"));
         if(count<1||count>stored.value().questions().size())throw new ServiceException("INVALID_INPUT","Số câu không hợp lệ");
         List<GameQuestion> out=new ArrayList<>();List<Long> ids=new ArrayList<>();
-        try(var s=c.prepareStatement("SELECT question_id FROM questions WHERE set_id=? ORDER BY position,question_id LIMIT ?")){
+        try(var s=c.prepareStatement("SELECT question_id FROM questions WHERE set_id=? ORDER BY position,question_id LIMIT ? FOR UPDATE")){
             s.setLong(1,setId);s.setInt(2,count);try(var r=s.executeQuery()){while(r.next())ids.add(r.getLong(1));}
         }
         for(int i=0;i<ids.size();i++){
             List<Long> options=new ArrayList<>();
-            try(var s=c.prepareStatement("SELECT option_id FROM question_options WHERE question_id=? ORDER BY option_index")){
+            try(var s=c.prepareStatement("SELECT option_id FROM question_options WHERE question_id=? ORDER BY option_index FOR UPDATE")){
                 s.setLong(1,ids.get(i));try(var r=s.executeQuery()){while(r.next())options.add(r.getLong(1));}
             }
             out.add(new GameQuestion(ids.get(i),stored.value().questions().get(i),List.copyOf(options),stored.imageRefs().get(i)));

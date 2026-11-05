@@ -2,7 +2,7 @@
 
 ## Phạm vi hiện tại
 
-Đã triển khai tài khoản/hiện diện, đọc bộ câu hỏi, phòng/lời mời, sẵn sàng/nhắc/kick/cấu hình và chơi trọn trận (START_GAME, ANSWER, QUIT_GAME). Luồng TCP/DB được kiểm thử với **MySQL tạm**; chưa thao tác trực tiếp giao diện Swing cho giai đoạn gameplay này. Đã bổ sung tra cứu xếp hạng và lịch sử. Chức năng tạo/sửa/xóa bộ qua ứng dụng thuộc phần riêng.
+Đã triển khai tài khoản/hiện diện, tạo/đọc/sửa/xóa mềm bộ câu hỏi, phòng/lời mời, sẵn sàng/nhắc/kick/cấu hình và chơi trọn trận (START_GAME, ANSWER, QUIT_GAME). Luồng TCP/DB được kiểm thử với **MySQL tạm**; chưa thao tác trực tiếp giao diện Swing cho giai đoạn gameplay này. Chưa triển khai leaderboard hoặc history API.
 
 `ServerApp` chạy `StartupRecovery` sau khi lấy named lock: hủy phòng/lời mời/match còn dở, đóng submission chưa kết thúc và đánh dấu round hoàn tất trong match cancelled. Không xóa tài khoản hoặc cộng thắng cho trận bị hủy. Shutdown hủy trận trước khi lần lượt đóng sockets để không tạo người thắng giả. Chỉ chạy trên DB demo đã sao lưu/chấp nhận việc reset trạng thái runtime; không dùng bản này trên DB production.
 
@@ -57,7 +57,36 @@ Server kiểm tra schema và lấy MySQL named lock trước khi bind cổng. N�
 - Snapshot/update mang username, `totalWins` và trạng thái. Thay đổi trạng thái hoặc số thắng được phát bằng `UPDATE` qua API nội bộ.
 - Password được hash PBKDF2, không gửi qua protocol. Presence chỉ giữ dữ liệu người chơi cần thiết, không giữ password hash.
 
-## Đọc bộ câu hỏi
+## Bộ câu hỏi
+
+### Tạo bộ câu hỏi
+
+- `SET_CREATE {set: QuestionSet}` yêu cầu đăng nhập và `id=0`; trả `{id}` sau khi giao dịch đã commit. Chủ sở hữu lấy từ session, không tin trường `owner` do Client gửi.
+- Server kiểm tra tên (1–255 ký tự), chủ đề (tối đa 100 ký tự), mô tả (tối đa 65535 byte UTF-8), ít nhất một câu, nội dung, lựa chọn, đáp án đúng và thời gian 5–120 giây theo PROTOCOL. Lỗi nghiệp vụ trả `INVALID_SET`, chỉ rõ câu bị lỗi; JSON sai kiểu trả `BAD_REQUEST`.
+- Lưu đủ SINGLE/MULTI/TYPE, giữ thứ tự câu và lựa chọn. Đáp án TYPE được chuẩn hóa như khi chấm; các đáp án tương đương chỉ lưu một lần, giữ dấu tiếng Việt.
+- Ảnh phải là Base64 PNG/JPG hợp lệ, tối đa 1 MiB sau giải mã và 16 triệu điểm ảnh. Server sinh tên file dưới `images/`, không nhận đường dẫn từ Client. Tài khoản chạy server cần quyền ghi thư mục này.
+- Kiểm tra toàn bộ bản nháp và ảnh trước khi ghi; dữ liệu bộ/câu/lựa chọn/đáp án nằm trong một giao dịch. Nếu lưu file hoặc SQL thất bại, trả `INTERNAL`, rollback dữ liệu và dọn ảnh đã tạo. Không tự retry yêu cầu tạo khi đã mất kết nối sau commit để tránh tạo trùng.
+- Bộ mới công khai và dùng ngay qua SET_LIST/SET_GET/chọn bộ cho phòng. Giới hạn frame 2 MiB vẫn giữ nguyên; bộ quá lớn bị từ chối trước khi lưu.
+- Kiểm tra thủ công: build và khởi động lại server, mở ClientApp, đăng nhập → TẠO BỘ CÂU HỎI → điền tên, thêm câu thuộc ba loại và ảnh → hoàn tất lưu → kiểm tra thẻ bộ mới ở Home, mở lại để xem nội dung và chọn bộ trong phòng. Không cần nhập lại schema.
+- Kiểm thử tự động riêng chức năng tạo/đọc/sửa/xóa (19 test, MySQL tạm; không dùng `.env`):
+
+```powershell
+python database/tests/run_backend_tests.py --mvn 'C:/Program Files/Apache NetBeans/java/maven/bin/mvn.cmd' --tests 'QuestionSetMutationIntegrationTest,QuestionSetCreateIntegrationTest,QuestionSetReadIntegrationTest,QuestionSetRequestTest,QuestionSetValidatorTest'
+```
+
+Runner cho phép `--timeout` (giây), mặc định 900 để đủ thời gian chạy toàn bộ integration suite trên máy chậm.
+
+### Sửa và xóa bộ câu hỏi
+
+- `SET_UPDATE {set: QuestionSet}` trả `data:null`; `set.id` phải là ID dương của bộ đang tồn tại. Chỉ chủ sở hữu trong session được sửa; trường `owner` từ Client không thay đổi quyền sở hữu. Áp dụng toàn bộ validation nội dung/ảnh như khi tạo mới.
+- `SET_DELETE {id}` trả `data:null`, đánh dấu `deleted_at` và ẩn bộ khỏi SET_LIST/SET_GET/chọn bộ để chơi. Giữ câu hỏi, đáp án, ảnh và các tham chiếu lịch sử.
+- Chưa đăng nhập: `NOT_LOGGED_IN`; không phải chủ bộ: `NOT_OWNER`; bộ không tồn tại/đã xóa: `SET_NOT_FOUND`; bộ đang thuộc match `pending`/`in_progress`: `SET_IN_USE`. Các yêu cầu lỗi không làm đóng socket.
+- Khi sửa, chuyển phiên bản cũ (metadata, toàn bộ câu/đáp án/ảnh và các round đã dùng) sang một bản lưu ẩn; ID công khai của bộ vẫn giữ nguyên. Các ID câu/đáp án/submission cũ không đổi và dữ liệu lịch sử giữ tên/nội dung/điểm cũ. Không sửa schema; các phiên bản và ảnh cũ được giữ lại trong DB/ổ đĩa.
+- Một transaction gồm kiểm tra quyền/trận đang dùng, lưu phiên bản cũ, ghi nội dung mới và cập nhật các phòng chờ. SQL thất bại rollback toàn bộ và dọn ảnh mới tạo. Khóa bộ cũng được giữ khi đọc câu/tạo round để tránh trộn hai phiên bản khi bắt đầu trận.
+- Phòng chờ chọn bộ vừa sửa: giữ lựa chọn, giảm số câu xuống số còn có nếu cần, reset ready và phát ROOM_STATE mới sau commit. Bộ bị xóa: bỏ lựa chọn, đặt số câu về 0, xóa thời gian ghi đè và reset ready. ACK của người sửa/xóa được gửi trước ROOM_STATE.
+- Kiểm tra tay: đăng nhập bằng chủ bộ → bấm SỬA trên thẻ → đổi tên/nội dung/đáp án/ảnh → HOÀN THÀNH → mở lại để đối chiếu. Bấm XÓA → xác nhận → thẻ biến mất. Thử trong lúc một phòng chờ đang chọn bộ để thấy cập nhật; thử khi trận đang chạy để thấy lỗi SET_IN_USE. Khởi động lại server cũ trước khi thử bản mới, chỉ chạy một server.
+
+### Đọc bộ câu hỏi
 
 - Cần đăng nhập trước khi gửi `SET_LIST` (`data: null`) hoặc `SET_GET` (`data: {"id": ...}`).
 - `SET_LIST` trả `QuestionSetSummary[]`: tên, chủ đề, username người tạo, số câu, loại câu không lặp và cờ có ảnh. Sắp xếp bộ mới nhất trước theo ID. Không gửi đáp án trong danh sách.
@@ -123,7 +152,7 @@ Server kiểm tra schema và lấy MySQL named lock trước khi bind cổng. N�
 3. A bấm sẵn sàng, thử nhắc B; B sẵn sàng. A bấm Bắt đầu.
 4. Trả lời theo tốc độ riêng; kiểm tra kết quả từng câu, bảng điểm, kết quả trận và số trận thắng.
 5. Cả hai sẵn sàng lại để chơi trận mới; thử một người thoát giữa trận ở lượt khác.
-6. Không nhập lại SQL/schema. Chưa commit/push giai đoạn này; các màn tạo/sửa/xóa bộ, xếp hạng và lịch sử vẫn ngoài phạm vi.
+6. Không nhập lại SQL/schema. Chưa commit/push giai đoạn này; API xếp hạng và lịch sử vẫn ngoài phạm vi.
 
 ## Sửa lỗi về Home nhưng server vẫn giữ trong phòng
 
@@ -132,17 +161,3 @@ Server kiểm tra schema và lấy MySQL named lock trước khi bind cổng. N�
 - Chỉ sau xác nhận rời phòng mới chuyển self về IDLE. Bỏ snapshot phòng vừa rời và GAME_END đến muộn khi không còn ở màn chơi; vẫn cho phép vào lại phòng bằng lời mời mới.
 - Đã kiểm tra MainFrame/Swing và SocketGameClient thật qua TCP: chờ ACK, lỗi và retry, bấm điều hướng lặp, sự kiện muộn và nhận lời mời mới. Kiểm tra end-to-end riêng với backend thật trên MySQL disposable xác nhận membership được dọn, tạo phòng mới và accept lời mời đều thành công.
 - Để dùng bản sửa: build lại và đóng/mở lại client. Phiên cũ đang kẹt nên đăng xuất hoặc đóng client để server dọn session; không cần xóa DB/schema hoặc khởi động lại server chỉ vì lỗi điều hướng này.
-
-## Phần 5 — Thống kê
-
-| File | Thay đổi |
-| --- | --- |
-| server/src/main/java/quizgame/server/dao/StatisticsDao.java | Thêm ba truy vấn lấy xếp hạng, lịch sử cá nhân và chi tiết trận đã kết thúc. |
-| server/src/main/java/quizgame/server/net/ClientHandler.java | Xử lý LEADERBOARD, HISTORY, HISTORY_DETAIL. Dùng tài khoản của phiên đã đăng nhập. |
-| server/src/main/java/quizgame/server/net/QuizServer.java | Truyền StatisticsDao cho bộ xử lý kết nối. |
-| server/src/main/java/quizgame/server/ServerApp.java | Khởi tạo StatisticsDao từ cấu hình MySQL của Server. |
-| server/README.md | Ghi lại phạm vi thay đổi và cách thử. |
-
-Gameplay đã lưu kết quả và cộng thắng trong giao dịch kết thúc trận. Thống kê chỉ đọc kết quả đã chốt (completed hoặc draw). Xếp theo số thắng, tổng điểm rồi tên. Trả top 50 kèm hạng thật của người xem nếu ở ngoài top. Lịch sử lấy tối đa 100 trận của người xem, mới nhất trước. Chi tiết chỉ dành cho người đã tham gia.
-
-Chạy thử: khởi động lại Server, đăng nhập Client và mở Xếp hạng, Lịch sử. Tài khoản mới có 0 trận thắng và lịch sử rỗng. Sau khi chơi xong một trận, mở lại Lịch sử và nháy đúp vào dòng trận để so sánh với màn kết quả.
