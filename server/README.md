@@ -2,7 +2,7 @@
 
 ## Phạm vi hiện tại
 
-Đã triển khai tài khoản/hiện diện, đọc bộ câu hỏi, phòng/lời mời, sẵn sàng/nhắc/kick/cấu hình và chơi trọn trận (START_GAME, ANSWER, QUIT_GAME). Luồng TCP/DB được kiểm thử với **MySQL tạm**; chưa thao tác trực tiếp giao diện Swing cho giai đoạn gameplay này. Chưa triển khai tạo/sửa/xóa bộ qua ứng dụng, leaderboard hoặc history API.
+Đã triển khai tài khoản/hiện diện, đọc bộ câu hỏi, phòng/lời mời, sẵn sàng/nhắc/kick/cấu hình và chơi trọn trận (START_GAME, ANSWER, QUIT_GAME). Luồng TCP/DB được kiểm thử với **MySQL tạm**; chưa thao tác trực tiếp giao diện Swing cho giai đoạn gameplay này. Đã bổ sung tra cứu xếp hạng và lịch sử. Chức năng tạo/sửa/xóa bộ qua ứng dụng thuộc phần riêng.
 
 `ServerApp` chạy `StartupRecovery` sau khi lấy named lock: hủy phòng/lời mời/match còn dở, đóng submission chưa kết thúc và đánh dấu round hoàn tất trong match cancelled. Không xóa tài khoản hoặc cộng thắng cho trận bị hủy. Shutdown hủy trận trước khi lần lượt đóng sockets để không tạo người thắng giả. Chỉ chạy trên DB demo đã sao lưu/chấp nhận việc reset trạng thái runtime; không dùng bản này trên DB production.
 
@@ -132,3 +132,17 @@ Server kiểm tra schema và lấy MySQL named lock trước khi bind cổng. N�
 - Chỉ sau xác nhận rời phòng mới chuyển self về IDLE. Bỏ snapshot phòng vừa rời và GAME_END đến muộn khi không còn ở màn chơi; vẫn cho phép vào lại phòng bằng lời mời mới.
 - Đã kiểm tra MainFrame/Swing và SocketGameClient thật qua TCP: chờ ACK, lỗi và retry, bấm điều hướng lặp, sự kiện muộn và nhận lời mời mới. Kiểm tra end-to-end riêng với backend thật trên MySQL disposable xác nhận membership được dọn, tạo phòng mới và accept lời mời đều thành công.
 - Để dùng bản sửa: build lại và đóng/mở lại client. Phiên cũ đang kẹt nên đăng xuất hoặc đóng client để server dọn session; không cần xóa DB/schema hoặc khởi động lại server chỉ vì lỗi điều hướng này.
+
+## Phần 5 — Thống kê
+
+| File | Thay đổi |
+| --- | --- |
+| server/src/main/java/quizgame/server/dao/StatisticsDao.java | Thêm ba truy vấn lấy xếp hạng, lịch sử cá nhân và chi tiết trận đã kết thúc. |
+| server/src/main/java/quizgame/server/net/ClientHandler.java | Xử lý LEADERBOARD, HISTORY, HISTORY_DETAIL. Dùng tài khoản của phiên đã đăng nhập. |
+| server/src/main/java/quizgame/server/net/QuizServer.java | Truyền StatisticsDao cho bộ xử lý kết nối. |
+| server/src/main/java/quizgame/server/ServerApp.java | Khởi tạo StatisticsDao từ cấu hình MySQL của Server. |
+| server/README.md | Ghi lại phạm vi thay đổi và cách thử. |
+
+Gameplay đã lưu kết quả và cộng thắng trong giao dịch kết thúc trận. Thống kê chỉ đọc kết quả đã chốt (completed hoặc draw). Xếp theo số thắng, tổng điểm rồi tên. Trả top 50 kèm hạng thật của người xem nếu ở ngoài top. Lịch sử lấy tối đa 100 trận của người xem, mới nhất trước. Chi tiết chỉ dành cho người đã tham gia.
+
+Chạy thử: khởi động lại Server, đăng nhập Client và mở Xếp hạng, Lịch sử. Tài khoản mới có 0 trận thắng và lịch sử rỗng. Sau khi chơi xong một trận, mở lại Lịch sử và nháy đúp vào dòng trận để so sánh với màn kết quả.
