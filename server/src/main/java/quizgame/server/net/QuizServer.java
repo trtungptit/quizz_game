@@ -1,6 +1,5 @@
 package quizgame.server.net;
 
-import quizgame.server.dao.StatisticsDao;
 import quizgame.server.service.AuthService;
 import quizgame.server.service.OnlineRegistry;
 import quizgame.server.service.RoomManager;
@@ -27,7 +26,6 @@ public final class QuizServer implements AutoCloseable {
     private final RoomManager rooms;
     private final InviteManager invites;
     private final QuestionSetService questionSets;
-    private final StatisticsDao statistics;
     private final GameManager games;
     // Handler giữ socket suốt phiên: không xếp socket thứ 9 vào hàng đợi sau 8 phiên đang mở.
     private final ThreadPoolExecutor handlers = new ThreadPoolExecutor(0, 32, 30, TimeUnit.SECONDS,
@@ -53,12 +51,6 @@ public final class QuizServer implements AutoCloseable {
 
     public QuizServer(String host, int port, AuthService auth, OnlineRegistry online,
                       RoomManager rooms, InviteManager invites, QuestionSetService questionSets) throws IOException {
-        this(host, port, auth, online, rooms, invites, questionSets, null);
-    }
-
-    public QuizServer(String host, int port, AuthService auth, OnlineRegistry online,
-                      RoomManager rooms, InviteManager invites, QuestionSetService questionSets, StatisticsDao statistics) throws IOException {
-        this.statistics = statistics;
         this.auth = auth;
         this.online = online;
         this.rooms = rooms;
@@ -86,7 +78,7 @@ public final class QuizServer implements AutoCloseable {
                 clients.add(socket);
                 try {
                     handlers.execute(() -> {
-                        try { new ClientHandler(socket, auth, online, rooms, invites, questionSets, statistics).run(); }
+                        try { new ClientHandler(socket, auth, online, rooms, invites, questionSets).run(); }
                         finally { clients.remove(socket); }
                     });
                 } catch (RuntimeException rejected) {

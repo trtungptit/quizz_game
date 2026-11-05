@@ -17,6 +17,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--mysql-bin", type=Path, default=DEFAULT_MYSQL)
     parser.add_argument("--mvn", type=Path, default=DEFAULT_MVN)
+    parser.add_argument("--timeout", type=int, default=900,
+                        help="Maximum seconds for Maven tests (default: 900)")
+    parser.add_argument("--tests", help="Optional Maven test class selector")
     args = parser.parse_args()
     scratch = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "hermes/cache/scratch"
     scratch.mkdir(parents=True, exist_ok=True)
@@ -57,8 +60,11 @@ def main():
         env = os.environ.copy()
         env.update({"QUIZ_TEST_DB_URL": f"jdbc:mysql://127.0.0.1:{port}/quiz_game?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
                     "QUIZ_TEST_DB_USER": "quiz_test", "QUIZ_TEST_DB_PASSWORD": "ephemeral-test-only"})
-        subprocess.run(["cmd.exe", "/c", str(args.mvn), "-q", "-pl", "server", "-am", "test"],
-                       cwd=ROOT, env=env, check=True, timeout=300)
+        command = ["cmd.exe", "/c", str(args.mvn), "-q", "-pl", "server", "-am", "test"]
+        if args.tests:
+            command += ["-Dtest=" + args.tests, "-Dsurefire.failIfNoSpecifiedTests=false"]
+        subprocess.run(command,
+                       cwd=ROOT, env=env, check=True, timeout=args.timeout)
         print("Backend unit + TCP/DB integration tests passed.", flush=True)
     finally:
         if server is not None and port is not None:

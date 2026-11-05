@@ -47,7 +47,7 @@ public final class ServerApp {
             RoomManager rooms = new RoomManager(database, roomDao, online);
             InviteManager invites = new InviteManager(database, accountDao, new InvitationDao(), roomDao, online, rooms);
             QuestionSetService questionSets = new QuestionSetService(database, new QuestionSetDao());
-            server = new QuizServer(config.host(), config.port(), auth, online, rooms, invites, questionSets, new quizgame.server.dao.StatisticsDao(database));
+            server = new QuizServer(config.host(), config.port(), auth, online, rooms, invites, questionSets);
             server.start();
             QuizServer running = server;
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
