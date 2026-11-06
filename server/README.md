@@ -152,7 +152,7 @@ Runner cho phép `--timeout` (giây), mặc định 900 để đủ thời gian 
 3. A bấm sẵn sàng, thử nhắc B; B sẵn sàng. A bấm Bắt đầu.
 4. Trả lời theo tốc độ riêng; kiểm tra kết quả từng câu, bảng điểm, kết quả trận và số trận thắng.
 5. Cả hai sẵn sàng lại để chơi trận mới; thử một người thoát giữa trận ở lượt khác.
-6. Không nhập lại SQL/schema. Chưa commit/push giai đoạn này; API xếp hạng và lịch sử vẫn ngoài phạm vi.
+6. Không nhập lại SQL/schema. Chưa commit/push giai đoạn này; API xếp hạng và lịch sử được nối tại mục Thống kê bên dưới.
 
 ## Sửa lỗi về Home nhưng server vẫn giữ trong phòng
 
@@ -161,3 +161,20 @@ Runner cho phép `--timeout` (giây), mặc định 900 để đủ thời gian 
 - Chỉ sau xác nhận rời phòng mới chuyển self về IDLE. Bỏ snapshot phòng vừa rời và GAME_END đến muộn khi không còn ở màn chơi; vẫn cho phép vào lại phòng bằng lời mời mới.
 - Đã kiểm tra MainFrame/Swing và SocketGameClient thật qua TCP: chờ ACK, lỗi và retry, bấm điều hướng lặp, sự kiện muộn và nhận lời mời mới. Kiểm tra end-to-end riêng với backend thật trên MySQL disposable xác nhận membership được dọn, tạo phòng mới và accept lời mời đều thành công.
 - Để dùng bản sửa: build lại và đóng/mở lại client. Phiên cũ đang kẹt nên đăng xuất hoặc đóng client để server dọn session; không cần xóa DB/schema hoặc khởi động lại server chỉ vì lỗi điều hướng này.
+
+## Thống kê và tích hợp quản lý bộ câu hỏi
+
+Đã nối lại LEADERBOARD, HISTORY, HISTORY_DETAIL sau khi tích hợp quản lý bộ câu hỏi.
+Lấy danh tính từ phiên đăng nhập, chỉ đọc trận đã chốt và chỉ cho người tham gia xem chi tiết.
+StatisticsDao đã có từ PR #2 và tiếp tục được sử dụng.
+
+| File sửa trong lần khôi phục | Nội dung |
+| --- | --- |
+| server/src/main/java/quizgame/server/ServerApp.java | Khởi tạo StatisticsDao khi bật Server. |
+| server/src/main/java/quizgame/server/net/QuizServer.java | Truyền StatisticsDao cho ClientHandler. |
+| server/src/main/java/quizgame/server/net/ClientHandler.java | Phục hồi ba yêu cầu Thống kê cùng xử lý lỗi SQL. Các yêu cầu SET_CREATE, SET_UPDATE, SET_DELETE cùng hoạt động. |
+| server/README.md | Ghi lại phạm vi khôi phục và kết quả kiểm tra. |
+
+Kiểm tra hồi quy qua ServerApp và TCP thật với MySQL 8.0.45 tạm: lịch sử rỗng, top 50 kèm hạng 51, điểm và thứ hạng trận, quyền xem chi tiết, tạo/sửa/xóa bộ câu hỏi và tra cứu thống kê sau các thao tác đó đều đạt. Biên dịch Server bằng JDK 17 đạt. Maven package còn thiếu thư viện plugin trong cache ngoại tuyến.
+
+Chạy thử bằng IntelliJ: đóng Client, dừng Server, Build > Rebuild Project, chạy Quiz Server rồi Client. Mở Xếp hạng và Lịch sử, nháy đúp trận cũ để xem chi tiết. Có thể tạo một bộ câu hỏi mới từ giao diện để thử phần quản lý câu hỏi đã tích hợp.
