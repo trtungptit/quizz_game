@@ -135,10 +135,15 @@ public class StyledTable extends JTable {
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value, boolean selected, boolean focus,
                                                        int row, int column) {
-            super.getTableCellRendererComponent(table, value, false, false, row, column);
-            Color bg = style.background(row, column);
-            setBackground(bg != null ? bg : Color.WHITE);
-            setForeground(AppTheme.TEXT);
+            super.getTableCellRendererComponent(table, value, selected, focus, row, column);
+            if (selected) {
+                setBackground(table.getSelectionBackground());
+                setForeground(table.getSelectionForeground());
+            } else {
+                Color bg = style.background(row, column);
+                setBackground(bg != null ? bg : Color.WHITE);
+                setForeground(AppTheme.TEXT);
+            }
             setFont(style.bold(row, column) ? AppTheme.FONT_BASE.deriveFont(Font.BOLD) : AppTheme.FONT_BASE);
             return this;
         }
