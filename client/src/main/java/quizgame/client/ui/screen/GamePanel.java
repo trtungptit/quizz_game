@@ -10,6 +10,8 @@ import quizgame.client.ui.component.CardPanel;
 import quizgame.client.ui.component.GradientPanel;
 import quizgame.client.ui.component.ScoreWindow;
 import quizgame.client.ui.component.StyledTable;
+import quizgame.client.ui.component.WidthTrackingPanel;
+import quizgame.client.ui.component.WrappingText;
 import quizgame.client.util.Async;
 import quizgame.client.util.ImageUtil;
 import quizgame.common.model.Answer;
@@ -27,7 +29,7 @@ import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
+
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.Timer;
@@ -61,7 +63,8 @@ public class GamePanel extends JPanel implements Screen {
     private final JLabel scoreLabel = whiteLabel("ĐIỂM: 0", 18f);
 
     // Giữa
-    private final JTextArea questionText = new JTextArea();
+    private final WrappingText questionText = new WrappingText("");
+    private final CardPanel questionCard = new CardPanel(new BorderLayout());
     private final JLabel imageLabel = new JLabel("", SwingConstants.CENTER);
     private final CardLayout answerLayout = new CardLayout();
     private final JPanel answerArea = new JPanel(answerLayout);
@@ -90,6 +93,7 @@ public class GamePanel extends JPanel implements Screen {
     private long deadlineNanos;
     private long limitMs = 1;
     private List<Integer> chosen = List.of();
+    private int renderedImageWidth = -1;
 
     public GamePanel(MainFrame frame) {
         super(new BorderLayout());
@@ -99,7 +103,13 @@ public class GamePanel extends JPanel implements Screen {
         JPanel center = new JPanel(new BorderLayout(AppTheme.GAP_L, 0));
         center.setBorder(BorderFactory.createEmptyBorder(AppTheme.GAP_M, AppTheme.GAP_L, AppTheme.GAP_L,
                 AppTheme.GAP_L));
-        center.add(buildQuestionSide(), BorderLayout.CENTER);
+        JScrollPane questionScroll = new JScrollPane(buildQuestionSide(),
+                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        questionScroll.setBorder(null);
+        questionScroll.setOpaque(false);
+        questionScroll.getViewport().setOpaque(false);
+        questionScroll.getVerticalScrollBar().setUnitIncrement(20);
+        center.add(questionScroll, BorderLayout.CENTER);
         center.add(buildScoreSide(), BorderLayout.EAST);
         add(center, BorderLayout.CENTER);
     }
@@ -135,11 +145,25 @@ public class GamePanel extends JPanel implements Screen {
     }
 
     private JPanel buildQuestionSide() {
-        JPanel side = new JPanel();
+        JPanel side = new WidthTrackingPanel(null) {
+            @Override
+            public Dimension getPreferredSize() {
+                updateQuestionLayout(getWidth() > 0 ? getWidth() : 560);
+                ((BoxLayout) getLayout()).invalidateLayout(this);
+                return super.getPreferredSize();
+            }
+
+            @Override
+            public void doLayout() {
+                updateQuestionLayout(getWidth());
+                ((BoxLayout) getLayout()).invalidateLayout(this);
+                super.doLayout();
+            }
+        };
         side.setOpaque(false);
         side.setLayout(new BoxLayout(side, BoxLayout.Y_AXIS));
 
-        CardPanel card = new CardPanel(new BorderLayout());
+        CardPanel card = questionCard;
         questionText.setEditable(false);
         questionText.setFocusable(false);
         questionText.setLineWrap(true);
@@ -148,7 +172,7 @@ public class GamePanel extends JPanel implements Screen {
         questionText.setFont(AppTheme.FONT_BOLD.deriveFont(20f));
         card.add(questionText, BorderLayout.CENTER);
         card.setAlignmentX(LEFT_ALIGNMENT);
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 180));
+
         side.add(card);
         side.add(Box.createVerticalStrut(AppTheme.GAP_S));
 
@@ -168,8 +192,7 @@ public class GamePanel extends JPanel implements Screen {
         answerArea.add(new JPanel(), "NONE");
         answerLayout.show(answerArea, "NONE");
         answerArea.setAlignmentX(LEFT_ALIGNMENT);
-        answerArea.setPreferredSize(new Dimension(100, 190));
-        answerArea.setMaximumSize(new Dimension(Integer.MAX_VALUE, 230));
+
         side.add(answerArea);
         side.add(Box.createVerticalStrut(AppTheme.GAP_S));
 
@@ -366,14 +389,8 @@ public class GamePanel extends JPanel implements Screen {
         banner.setVisible(false);
         waiting.setText(" ");
 
-        BufferedImage image = q.imageId() == null ? null : images.get(q.imageId());
-        if (image != null) {
-            imageLabel.setIcon(new ImageIcon(ImageUtil.fit(image, 560, 200)));
-            imageLabel.setVisible(true);
-        } else {
-            imageLabel.setIcon(null);
-            imageLabel.setVisible(false);
-        }
+        renderedImageWidth = -1;
+        fitQuestionImage(imageLabel.getParent().getWidth());
 
         switch (q.type()) {
             case SINGLE -> {
@@ -403,7 +420,83 @@ public class GamePanel extends JPanel implements Screen {
             }
         }
         answerLayout.show(answerArea, q.type().name());
+        imageLabel.getParent().revalidate();
+        if (imageLabel.getParent().getParent() instanceof javax.swing.JViewport viewport) {
+            viewport.setViewPosition(new java.awt.Point(0, 0));
+        }
         startCountdown(q.timeLimitMs());
+    }
+
+    private void fitQuestionImage(int width) {
+        int available = Math.max(1, width);
+        if (renderedImageWidth == available) return;
+        renderedImageWidth = available;
+        BufferedImage image = current == null || current.imageId() == null ? null : images.get(current.imageId());
+        if (image == null) {
+            imageLabel.setIcon(null);
+            imageLabel.setVisible(false);
+            return;
+        }
+        ImageIcon icon = new ImageIcon(ImageUtil.fit(image, available, 200));
+        imageLabel.setIcon(icon);
+        imageLabel.setPreferredSize(new Dimension(available, icon.getIconHeight()));
+        imageLabel.setMinimumSize(new Dimension(1, icon.getIconHeight()));
+        imageLabel.setMaximumSize(new Dimension(Integer.MAX_VALUE, icon.getIconHeight()));
+        imageLabel.setVisible(true);
+    }
+
+    private void updateQuestionLayout(int width) {
+        int available = Math.max(1, width);
+        java.awt.Insets insets = questionCard.getInsets();
+        questionText.setWrapWidth(available - insets.left - insets.right);
+        int questionHeight = questionText.getPreferredSize().height + insets.top + insets.bottom;
+        fixedHeight(questionCard, available, questionHeight);
+        fitQuestionImage(available);
+        int answerHeight = 190;
+        if (current != null) {
+            answerHeight = switch (current.type()) {
+                case SINGLE -> singleAnswerHeight(available);
+                case MULTI -> multiAnswerHeight(available);
+                case TYPE -> 64;
+            };
+        }
+        fixedHeight(answerArea, available, answerHeight);
+    }
+
+    private int multiAnswerHeight(int width) {
+        for (int i = 0; i < multiChecks.length; i++) {
+            String option = i < current.options().size() ? current.options().get(i) : "";
+            String html = "<html>" + (char) ('A' + i) + ". " + escape(option) + "</html>";
+            if (!html.equals(multiChecks[i].getText())) multiChecks[i].setText(html);
+            Object renderer = multiChecks[i].getClientProperty(javax.swing.plaf.basic.BasicHTML.propertyKey);
+            if (renderer instanceof javax.swing.text.View view) {
+                view.setSize(Math.max(1, width - 80), 0);
+            }
+            fixedHeight(multiRows[i], width, Math.max(44, multiChecks[i].getPreferredSize().height + 16));
+        }
+        JPanel panel = (JPanel) multiConfirm.getParent();
+        ((BoxLayout) panel.getLayout()).invalidateLayout(panel);
+        return Math.max(250, panel.getPreferredSize().height);
+    }
+
+    private int singleAnswerHeight(int width) {
+        int columns = width >= 600 ? 2 : 1;
+        GridLayout layout = (GridLayout) singlePanel.getLayout();
+        layout.setRows(0);
+        layout.setColumns(columns);
+        int cellWidth = Math.max(1, (width - layout.getHgap() * (columns - 1)) / columns);
+        int cellHeight = 84;
+        for (AnswerButton button : singleButtons) {
+            cellHeight = Math.max(cellHeight, button.preferredHeightForWidth(cellWidth));
+        }
+        int rows = 4 / columns;
+        return rows * cellHeight + layout.getVgap() * (rows - 1);
+    }
+
+    private static void fixedHeight(JPanel panel, int width, int height) {
+        panel.setPreferredSize(new Dimension(width, height));
+        panel.setMinimumSize(new Dimension(1, height));
+        panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, height));
     }
 
     private AnswerButton replaceButton(int index, String text) {

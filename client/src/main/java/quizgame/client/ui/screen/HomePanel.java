@@ -12,6 +12,7 @@ import quizgame.client.ui.component.OnlineUsersModel;
 import quizgame.client.ui.component.QuestionSetCard;
 import quizgame.client.ui.component.SectionTitle;
 import quizgame.client.ui.component.StatePanel;
+import quizgame.client.ui.component.WidthTrackingPanel;
 import quizgame.client.util.Async;
 import quizgame.common.model.QuestionSetSummary;
 import quizgame.common.model.UserInfo;
@@ -38,6 +39,7 @@ public class HomePanel extends JPanel implements Screen {
     private final JTextField search = new JTextField();
     private final JCheckBox onlyMine = new JCheckBox("Chỉ bộ của tôi");
     private final JPanel grid = new JPanel(new GridLayout(0, 2, AppTheme.GAP_M, AppTheme.GAP_M));
+    private final JPanel gridFiller = new JPanel();
     private final StatePanel state;
     private final JLabel selfName = new JLabel();
     private final JLabel selfWins = new JLabel();
@@ -58,8 +60,15 @@ public class HomePanel extends JPanel implements Screen {
         setBorder(BorderFactory.createEmptyBorder(AppTheme.GAP_L, AppTheme.GAP_L, AppTheme.GAP_L, AppTheme.GAP_L));
 
         // ----- Cột trái
-        JPanel gridHolder = new JPanel(new BorderLayout());
+        JPanel gridHolder = new WidthTrackingPanel(new BorderLayout()) {
+            @Override
+            public void doLayout() {
+                configureGrid(getWidth());
+                super.doLayout();
+            }
+        };
         gridHolder.setOpaque(false);
+        gridFiller.setOpaque(false);
         grid.setOpaque(false);
         gridHolder.add(grid, BorderLayout.NORTH);
         JScrollPane scroll = new JScrollPane(gridHolder, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
@@ -208,15 +217,27 @@ public class HomePanel extends JPanel implements Screen {
             boolean mine = s.owner().equals(me);
             grid.add(new QuestionSetCard(s, mine, () -> play(s), () -> frame.openSetEditor(s.id()), () -> delete(s)));
         }
-        // Số thẻ lẻ: thêm ô trống để thẻ cuối không bị kéo giãn hết hàng
-        if (shown.size() % 2 == 1) {
-            JPanel filler = new JPanel();
-            filler.setOpaque(false);
-            grid.add(filler);
-        }
+        configureGrid(grid.getParent().getWidth());
         grid.revalidate();
         grid.repaint();
         state.showContent();
+    }
+
+    private void configureGrid(int width) {
+        GridLayout layout = (GridLayout) grid.getLayout();
+        int columns = width >= 660 ? 2 : 1;
+        boolean changed = layout.getColumns() != columns;
+        layout.setColumns(columns);
+        int count = grid.getComponentCount() - (gridFiller.getParent() == grid ? 1 : 0);
+        boolean needsFiller = columns == 2 && count % 2 == 1;
+        if (needsFiller && gridFiller.getParent() != grid) {
+            grid.add(gridFiller);
+            changed = true;
+        } else if (!needsFiller && gridFiller.getParent() == grid) {
+            grid.remove(gridFiller);
+            changed = true;
+        }
+        if (changed) grid.revalidate();
     }
 
     private void delete(QuestionSetSummary set) {
