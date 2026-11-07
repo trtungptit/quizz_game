@@ -6,6 +6,8 @@ import quizgame.client.ui.MainFrame;
 import quizgame.client.ui.Screen;
 import quizgame.client.ui.component.AppButton;
 import quizgame.client.ui.component.CardPanel;
+import quizgame.client.ui.component.ChoiceIllustration;
+import quizgame.client.ui.component.IllustratedChoiceButton;
 import quizgame.client.ui.component.QuestionEditor;
 import quizgame.client.ui.component.StatePanel;
 import quizgame.client.util.Async;
@@ -18,8 +20,6 @@ import quizgame.common.model.QuestionSet;
 import quizgame.common.model.QuestionType;
 
 import javax.swing.BorderFactory;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
@@ -38,7 +38,6 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
-import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -49,8 +48,6 @@ import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.RenderingHints;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -151,12 +148,25 @@ public class SetEditorPanel extends JPanel implements Screen {
         JPanel panel = new JPanel(new GridLayout(1, 5, AppTheme.GAP_M, 0));
         panel.setOpaque(false);
         panel.setPreferredSize(new Dimension(100, 240));
-        panel.add(new ChoiceCard("Buttons", "Câu hỏi 1 đáp án", () -> addQuestion(QuestionType.SINGLE)));
-        panel.add(new ChoiceCard("Checkboxes", "Câu hỏi nhiều đáp án", () -> addQuestion(QuestionType.MULTI)));
-        panel.add(new ChoiceCard("Type answer", "Thuật ngữ, từ khóa", () -> addQuestion(QuestionType.TYPE)));
-        panel.add(new ChoiceCard("Download Template", "Tải file CSV mẫu", this::downloadTemplate));
-        panel.add(new ChoiceCard("Import file", "Nhập từ file CSV", this::importFile));
-        JPanel holder = new JPanel(new BorderLayout());
+        panel.add(new IllustratedChoiceButton(ChoiceIllustration.Kind.SINGLE, "1 đáp án", "Chọn một đáp án",
+                () -> addQuestion(QuestionType.SINGLE)));
+        panel.add(new IllustratedChoiceButton(ChoiceIllustration.Kind.MULTI, "Nhiều đáp án", "Chọn nhiều ô đúng",
+                () -> addQuestion(QuestionType.MULTI)));
+        panel.add(new IllustratedChoiceButton(ChoiceIllustration.Kind.TYPE, "Nhập đáp án", "Gõ từ hoặc cụm từ",
+                () -> addQuestion(QuestionType.TYPE)));
+        panel.add(new IllustratedChoiceButton(ChoiceIllustration.Kind.TEMPLATE, "Tải CSV mẫu", "Tải mẫu để điền câu hỏi",
+                this::downloadTemplate));
+        panel.add(new IllustratedChoiceButton(ChoiceIllustration.Kind.IMPORT, "Nhập từ CSV", "Thêm câu hỏi từ tệp",
+                this::importFile));
+        JPanel holder = new JPanel(new BorderLayout()) {
+            @Override
+            public void doLayout() {
+                // Giữ hàng 5 thẻ, nhưng không để chiều cao 240 che thanh hoàn thành ở cửa sổ thấp.
+                int height = Math.min(240, Math.max(0, getHeight()));
+                if (panel.getPreferredSize().height != height) panel.setPreferredSize(new Dimension(100, height));
+                super.doLayout();
+            }
+        };
         holder.setOpaque(false);
         holder.add(panel, BorderLayout.NORTH);
         return holder;
@@ -203,9 +213,9 @@ public class SetEditorPanel extends JPanel implements Screen {
 
     private JPopupMenu fileMenu() {
         JPopupMenu menu = new JPopupMenu();
-        JMenuItem download = new JMenuItem("Download Template");
+        JMenuItem download = new JMenuItem("Tải CSV mẫu");
         download.addActionListener(e -> downloadTemplate());
-        JMenuItem imp = new JMenuItem("Import file");
+        JMenuItem imp = new JMenuItem("Nhập từ CSV");
         imp.addActionListener(e -> importFile());
         menu.add(download);
         menu.add(imp);
@@ -512,54 +522,6 @@ public class SetEditorPanel extends JPanel implements Screen {
     }
 
     // ---------------------------------------------------------------- Thành phần nhỏ
-
-    /** Ô lớn bấm được ở Bước 1. */
-    private static final class ChoiceCard extends CardPanel {
-        ChoiceCard(String title, String subtitle, Runnable action) {
-            super(new BorderLayout());
-            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            JPanel box = new JPanel();
-            box.setOpaque(false);
-            box.setLayout(new BoxLayout(box, BoxLayout.Y_AXIS));
-            JLabel t = new JLabel("<html><u>" + title + "</u></html>");
-            t.setFont(AppTheme.FONT_BOLD.deriveFont(16f));
-            t.setAlignmentX(Component.CENTER_ALIGNMENT);
-            t.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-            t.setMaximumSize(new Dimension(Integer.MAX_VALUE, t.getPreferredSize().height));
-            JLabel s = new JLabel(subtitle);
-            s.setFont(AppTheme.FONT_BASE.deriveFont(java.awt.Font.ITALIC, 13f));
-            s.setForeground(AppTheme.TEXT_MUTED);
-            s.setAlignmentX(Component.CENTER_ALIGNMENT);
-            s.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-            s.setMaximumSize(new Dimension(Integer.MAX_VALUE, s.getPreferredSize().height));
-            box.add(Box.createVerticalGlue());
-            box.add(t);
-            box.add(Box.createVerticalStrut(6));
-            box.add(s);
-            box.add(Box.createVerticalGlue());
-            add(box, BorderLayout.CENTER);
-            MouseAdapter click = new MouseAdapter() {
-                @Override
-                public void mouseClicked(MouseEvent e) {
-                    action.run();
-                }
-
-                @Override
-                public void mouseEntered(MouseEvent e) {
-                    setFill(AppTheme.SOFT);
-                }
-
-                @Override
-                public void mouseExited(MouseEvent e) {
-                    setFill(Color.WHITE);
-                }
-            };
-            addMouseListener(click);
-            box.addMouseListener(click);
-            t.addMouseListener(click);
-            s.addMouseListener(click);
-        }
-    }
 
     /** Nút số câu: nền tím khi đang sửa, gạch dưới xanh (đủ dữ liệu) hoặc đỏ (thiếu). */
     private static final class NumberButton extends JButton {

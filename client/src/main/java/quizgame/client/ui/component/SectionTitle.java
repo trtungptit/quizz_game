@@ -6,13 +6,12 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
-import java.awt.GradientPaint;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.util.Locale;
 
-/** Tiêu đề IN HOA có gạch vàng cam bên dưới. */
+/** Tiêu đề có điểm nhấn tím gọn; giữ nguyên vùng bố cục tiêu đề. */
 public class SectionTitle extends JPanel {
     private final JLabel label = new JLabel();
 
@@ -40,8 +39,8 @@ public class SectionTitle extends JPanel {
         protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setPaint(new GradientPaint(0, 0, AppTheme.ACCENT, 64, 0, AppTheme.ORANGE));
-            g2.fillRoundRect(0, 0, 64, 5, 5, 5);
+            g2.setColor(AppTheme.PRIMARY);
+            g2.fillRoundRect(0, 1, 64, 3, 3, 3);
             g2.dispose();
         }
 

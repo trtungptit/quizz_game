@@ -6,7 +6,7 @@ import quizgame.client.ui.Dialogs;
 import quizgame.client.ui.MainFrame;
 import quizgame.client.ui.Screen;
 import quizgame.client.ui.component.AppButton;
-import quizgame.client.ui.component.GradientPanel;
+import quizgame.client.ui.component.CardPanel;
 import quizgame.client.ui.component.OnlinePlayersPanel;
 import quizgame.client.ui.component.OnlineUsersModel;
 import quizgame.client.ui.component.QuestionSetCard;
@@ -122,7 +122,7 @@ public class HomePanel extends JPanel implements Screen {
         head.add(onlyMine);
         head.add(javax.swing.Box.createVerticalStrut(AppTheme.GAP_S));
 
-        AppButton createRoom = new AppButton("TẠO PHÒNG THI ĐẤU", AppTheme.ACCENT, AppTheme.TITLE);
+        AppButton createRoom = AppButton.primary("TẠO PHÒNG THI ĐẤU");
         createRoom.setFont(AppTheme.FONT_BOLD.deriveFont(17f));
         createRoom.setPreferredSize(new Dimension(100, 56));
         createRoom.addActionListener(e -> createRoomOnly());
@@ -145,12 +145,12 @@ public class HomePanel extends JPanel implements Screen {
     }
 
     private JPanel buildSelfBox() {
-        JPanel box = GradientPanel.diagonal(new BorderLayout(0, 6), AppTheme.ARC_CARD * 2);
+        JPanel box = new CardPanel(new BorderLayout(0, 6));
         box.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
         selfName.setFont(AppTheme.FONT_TITLE.deriveFont(17f));
-        selfName.setForeground(java.awt.Color.WHITE);
+        selfName.setForeground(AppTheme.TEXT);
         selfWins.setFont(AppTheme.FONT_BASE);
-        selfWins.setForeground(java.awt.Color.WHITE);
+        selfWins.setForeground(AppTheme.TEXT_MUTED);
         box.add(selfName, BorderLayout.NORTH);
         box.add(selfWins, BorderLayout.CENTER);
         return box;

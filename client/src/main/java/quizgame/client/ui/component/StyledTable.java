@@ -15,11 +15,9 @@ import java.awt.Component;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.LinearGradientPaint;
-import java.awt.geom.Point2D;
 import java.util.List;
 
-/** Bảng chỉ đọc: tiêu đề gradient, dòng cao, không lưới; màu nền và chữ đậm theo từng ô. */
+/** Bảng chỉ đọc: tiêu đề trung tính, dòng cao, không lưới; tôn trọng màu vùng chọn. */
 public class StyledTable extends JTable {
     /** Quy định kiểu của từng ô. */
     public interface CellStyle {
@@ -90,15 +88,13 @@ public class StyledTable extends JTable {
         rows.forEach(model::addRow);
     }
 
-    /** Tiêu đề: gradient chạy suốt chiều rộng bảng, mỗi ô lấy đúng đoạn của mình. */
+    /** Tiêu đề nền sáng để nhường điểm nhấn cho nội dung và dòng đang chọn. */
     private final class HeaderRenderer extends JLabel implements TableCellRenderer {
-        private int offsetX;
-        private int totalWidth = 1;
 
         HeaderRenderer() {
             setOpaque(false);
             setFont(AppTheme.FONT_BOLD.deriveFont(Font.BOLD, 12f));
-            setForeground(Color.WHITE);
+            setForeground(AppTheme.TEXT_MUTED);
             setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 12));
         }
 
@@ -106,20 +102,13 @@ public class StyledTable extends JTable {
         public Component getTableCellRendererComponent(JTable table, Object value, boolean selected, boolean focus,
                                                        int row, int column) {
             setText(value == null ? "" : value.toString().toUpperCase());
-            offsetX = 0;
-            for (int i = 0; i < column; i++) {
-                offsetX += table.getColumnModel().getColumn(i).getWidth();
-            }
-            totalWidth = Math.max(1, table.getColumnModel().getTotalColumnWidth());
             return this;
         }
 
         @Override
         protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
-            g2.setPaint(new LinearGradientPaint(new Point2D.Float(-offsetX, 0),
-                    new Point2D.Float(totalWidth - offsetX, 0), new float[]{0f, 0.5f, 1f},
-                    new Color[]{AppTheme.GRADIENT_START, AppTheme.GRADIENT_MID, AppTheme.PRIMARY}));
+            g2.setColor(AppTheme.ROW_BG);
             g2.fillRect(0, 0, getWidth(), getHeight());
             g2.dispose();
             super.paintComponent(g);

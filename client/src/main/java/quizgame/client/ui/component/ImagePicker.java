@@ -5,9 +5,9 @@ import quizgame.client.ui.Dialogs;
 import quizgame.client.util.ImageUtil;
 
 import javax.swing.BorderFactory;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
+
 import javax.swing.ImageIcon;
+import javax.swing.Icon;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -20,6 +20,9 @@ import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -44,27 +47,41 @@ public class ImagePicker extends JPanel {
         setBorder(BorderFactory.createEmptyBorder(2, 2, 2, 2));
 
         empty.setOpaque(false);
-        empty.setLayout(new BoxLayout(empty, BoxLayout.Y_AXIS));
-        JLabel link = new JLabel("<html><u>TẢI HÌNH ẢNH</u></html>");
+        empty.setLayout(new GridBagLayout());
+        JLabel artwork = new JLabel(new UploadIcon(), SwingConstants.CENTER);
+        artwork.setAlignmentX(Component.CENTER_ALIGNMENT);
+        artwork.getAccessibleContext().setAccessibleName("Chọn ảnh từ máy tính");
+        JLabel link = new JLabel("TẢI HÌNH ẢNH", SwingConstants.CENTER);
         link.setFont(AppTheme.FONT_BOLD);
         link.setForeground(AppTheme.SOFT_TEXT);
-        JLabel hint = new JLabel("<html><u>(PNG/JPG, tối đa 800 px)</u></html>");
+        JLabel hint = new JLabel("PNG/JPG · tối đa 800 px", SwingConstants.CENTER);
         hint.setFont(AppTheme.FONT_SMALL);
         hint.setForeground(AppTheme.TEXT_MUTED);
         link.setAlignmentX(Component.CENTER_ALIGNMENT);
         hint.setAlignmentX(Component.CENTER_ALIGNMENT);
-        empty.add(Box.createVerticalGlue());
-        empty.add(link);
-        empty.add(Box.createVerticalStrut(4));
-        empty.add(hint);
-        empty.add(Box.createVerticalGlue());
+
+        GridBagConstraints c = new GridBagConstraints();
+        c.gridx = 0;
+        c.gridy = 0;
+        c.insets = new Insets(0, 0, 14, 0);
+        empty.add(artwork, c);
+        c.gridy = 1;
+        c.insets = new Insets(0, 0, 4, 0);
+        empty.add(link, c);
+        c.gridy = 2;
+        c.insets = new Insets(0, 0, 0, 0);
+        empty.add(hint, c);
         empty.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        empty.addMouseListener(new MouseAdapter() {
+        MouseAdapter pick = new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
                 choose();
             }
-        });
+        };
+        empty.addMouseListener(pick);
+        artwork.addMouseListener(pick);
+        link.addMouseListener(pick);
+        hint.addMouseListener(pick);
 
         filled.setOpaque(false);
         filled.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -131,6 +148,31 @@ public class ImagePicker extends JPanel {
             setImageBase64(ImageUtil.fileToBase64(file), true);
         } catch (IOException e) {
             Dialogs.error(this, e.getMessage());
+        }
+    }
+
+    /** Biểu tượng ảnh và mũi tên tải lên; chỉ là trang trí, không lưu vào dữ liệu câu hỏi. */
+    private static final class UploadIcon implements Icon {
+        @Override public int getIconWidth() { return 112; }
+        @Override public int getIconHeight() { return 88; }
+
+        @Override
+        public void paintIcon(Component component, Graphics graphics, int x, int y) {
+            Graphics2D g = (Graphics2D) graphics.create();
+            g.translate(x, y);
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setColor(AppTheme.CARD);
+            g.fillRoundRect(8, 8, 88, 64, 12, 12);
+            g.setColor(AppTheme.PRIMARY);
+            g.setStroke(new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g.drawRoundRect(8, 8, 88, 64, 12, 12);
+            g.fillOval(23, 22, 12, 12);
+            g.drawPolyline(new int[]{18, 37, 53, 69, 87}, new int[]{60, 42, 56, 37, 60}, 5);
+            g.fillOval(71, 49, 34, 34);
+            g.setColor(java.awt.Color.WHITE);
+            g.drawLine(88, 75, 88, 57);
+            g.drawPolyline(new int[]{81, 88, 95}, new int[]{64, 57, 64}, 3);
+            g.dispose();
         }
     }
 

@@ -19,7 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 
-/** Thanh điều hướng nền gradient: QUIZ, TRANG CHỦ, XẾP HẠNG, LỊCH SỬ và ĐĂNG XUẤT. */
+/** Thanh điều hướng tím phẳng: giữ nguyên vị trí và hành động các mục. */
 public class NavBar extends GradientPanel {
     private final Map<String, NavItem> items = new LinkedHashMap<>();
 
@@ -32,7 +32,7 @@ public class NavBar extends GradientPanel {
         left.setOpaque(false);
         JLabel logo = new JLabel(AppTheme.APP_NAME);
         logo.setFont(AppTheme.FONT_TITLE.deriveFont(26f));
-        logo.setForeground(AppTheme.ACCENT);
+        logo.setForeground(Color.WHITE);
         logo.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         logo.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, AppTheme.GAP_M));
         logo.addMouseListener(new MouseAdapter() {

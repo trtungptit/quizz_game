@@ -11,7 +11,7 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 
-/** Nút đáp án lớn một trong 4 màu cố định: A đỏ ▲, B xanh dương ◆, C cam ●, D xanh lá ■. */
+/** Đáp án nền sáng, ký hiệu có màu; màu đúng/sai chỉ xuất hiện sau khi chấm. */
 public class AnswerButton extends JButton {
     /** Trạng thái hiển thị sau khi có kết quả. */
     public enum State { NORMAL, CORRECT, WRONG, DIM }
@@ -24,16 +24,25 @@ public class AnswerButton extends JButton {
     public AnswerButton(int index, String text) {
         this.index = index;
         this.text = (char) ('A' + index) + ". " + text;
+        setText(this.text);
+        setForeground(AppTheme.TEXT);
         setFont(AppTheme.FONT_BOLD.deriveFont(18f));
         setContentAreaFilled(false);
         setBorderPainted(false);
         setFocusPainted(false);
         setOpaque(false);
+        setRolloverEnabled(true);
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
     }
 
     public void setState(State state) {
         this.state = state;
+        setForeground(switch (state) {
+            case CORRECT -> AppTheme.CORRECT;
+            case WRONG -> AppTheme.WRONG;
+            case DIM -> AppTheme.TEXT_MUTED;
+            default -> AppTheme.TEXT;
+        });
         repaint();
     }
 
@@ -60,31 +69,32 @@ public class AnswerButton extends JButton {
         g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         int w = getWidth();
         int h = getHeight();
-        Color base = COLORS[index];
+        boolean highlighted = state == State.NORMAL && (isSelected() || isEnabled()
+                && (hasFocus() || getModel().isRollover() || getModel().isPressed()));
         Color fill = switch (state) {
-            case DIM -> mix(base, Color.WHITE, 0.62f);
-            case WRONG -> AppTheme.WRONG;
-            default -> base;
+            case DIM -> AppTheme.ROW_BG;
+            case CORRECT -> AppTheme.CORRECT_SOFT;
+            case WRONG -> AppTheme.WRONG_SOFT;
+            default -> highlighted ? AppTheme.SOFT : AppTheme.CARD;
         };
-        int inset = state == State.CORRECT ? 6 : 0;
         g2.setColor(fill);
-        g2.fillRoundRect(inset, inset, w - 2 * inset, h - 2 * inset, 18, 18);
-        if (state == State.CORRECT) {
-            g2.setColor(AppTheme.CORRECT);
-            g2.setStroke(new BasicStroke(5f));
-            g2.drawRoundRect(2, 2, w - 5, h - 5, 22, 22);
-        } else if (state == State.WRONG) {
-            g2.setColor(new Color(0xB91C1C));
-            g2.setStroke(new BasicStroke(4f));
-            g2.drawRoundRect(2, 2, w - 5, h - 5, 20, 20);
-        }
-        g2.setColor(Color.WHITE);
+        g2.fillRoundRect(0, 0, w, h, 20, 20);
+        Color outline = switch (state) {
+            case CORRECT -> AppTheme.CORRECT;
+            case WRONG -> AppTheme.WRONG;
+            default -> highlighted ? AppTheme.PRIMARY : AppTheme.BORDER;
+        };
+        g2.setColor(outline);
+        g2.setStroke(new BasicStroke(state == State.NORMAL && !highlighted || state == State.DIM ? 1f : 2f));
+        g2.drawRoundRect(2, 2, w - 5, h - 5, 18, 18);
         g2.setFont(getFont());
         int cy = h / 2;
         java.util.List<String> lines = TextLines.wrap(text, g2.getFontMetrics(), w - 134);
         int lineHeight = g2.getFontMetrics().getHeight();
         int ty = (h - lineHeight * lines.size()) / 2 + g2.getFontMetrics().getAscent();
+        g2.setColor(state == State.NORMAL ? COLORS[index] : getForeground());
         drawSymbol(g2, 36, cy);
+        g2.setColor(getForeground());
         for (String line : lines) {
             g2.drawString(line, 64, ty);
             ty += lineHeight;
@@ -111,9 +121,4 @@ public class AnswerButton extends JButton {
         }
     }
 
-    private static Color mix(Color a, Color b, float ratio) {
-        return new Color(Math.round(a.getRed() * (1 - ratio) + b.getRed() * ratio),
-                Math.round(a.getGreen() * (1 - ratio) + b.getGreen() * ratio),
-                Math.round(a.getBlue() * (1 - ratio) + b.getBlue() * ratio));
-    }
 }

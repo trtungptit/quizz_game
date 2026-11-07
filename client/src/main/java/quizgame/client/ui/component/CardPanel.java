@@ -16,6 +16,7 @@ public class CardPanel extends RoundPanel {
     public CardPanel(LayoutManager layout, Color stripe) {
         super(layout, AppTheme.CARD, AppTheme.ARC_CARD * 2);
         this.stripe = stripe;
+        setOutline(AppTheme.BORDER);
         int top = stripe == null ? 12 : 12 + STRIPE_HEIGHT;
         setBorder(BorderFactory.createEmptyBorder(top, 16, 12, 16));
     }

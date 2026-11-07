@@ -39,7 +39,6 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.GradientPaint;
 import java.awt.GridLayout;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
@@ -126,7 +125,7 @@ public class GamePanel extends JPanel implements Screen {
     private JPanel buildTopBar() {
         JPanel bar = GradientPanel.horizontal(new BorderLayout(AppTheme.GAP_M, 0));
         bar.setBorder(BorderFactory.createEmptyBorder(14, AppTheme.GAP_L, 14, AppTheme.GAP_L));
-        AppButton quit = new AppButton("THOÁT", new Color(0x9B7BF7), Color.WHITE);
+        AppButton quit = new AppButton("THOÁT", AppTheme.SOFT, AppTheme.SOFT_TEXT);
         quit.setPreferredSize(new Dimension(96, 36));
         quit.addActionListener(e -> quit());
         JPanel right = new JPanel(new BorderLayout(AppTheme.GAP_M, 0));
@@ -534,9 +533,9 @@ public class GamePanel extends JPanel implements Screen {
             case MULTI -> {
                 for (int i = 0; i < 4; i++) {
                     if (correct.contains(i)) {
-                        multiRows[i].setBackground(new Color(0xBBF7D0));
+                        multiRows[i].setBackground(AppTheme.CORRECT_SOFT);
                     } else if (chosen.contains(i)) {
-                        multiRows[i].setBackground(new Color(0xFECACA));
+                        multiRows[i].setBackground(AppTheme.WRONG_SOFT);
                     }
                 }
             }
@@ -561,13 +560,13 @@ public class GamePanel extends JPanel implements Screen {
             if (current.type() != QuestionType.TYPE) {
                 text += " — bạn đã chọn " + optionsText(chosen);
             }
-            bg = new Color(0xDCFCE7);
-            fg = new Color(0x15803D);
+            bg = AppTheme.CORRECT_SOFT;
+            fg = AppTheme.CORRECT;
         } else {
             text = (hadAnswered ? "SAI" : "HẾT GIỜ") + " — đáp án "
                     + (current.type() == QuestionType.TYPE ? "chấp nhận: " : "đúng: ") + correctText;
-            bg = new Color(0xFEE2E2);
-            fg = new Color(0xB91C1C);
+            bg = AppTheme.WRONG_SOFT;
+            fg = AppTheme.WRONG;
         }
         banner.setText("<html>" + escape(text) + "</html>");
         banner.setBackground(bg);
@@ -619,6 +618,9 @@ public class GamePanel extends JPanel implements Screen {
             return;
         }
         chosen = answer.choices() == null ? List.of() : List.copyOf(answer.choices());
+        if (current.type() == QuestionType.SINGLE) {
+            for (int i = 0; i < singleButtons.length; i++) singleButtons[i].setSelected(chosen.contains(i));
+        }
         lock();
         Async.ui(frame.client().answer(current.qIndex(), answer), v -> { }, error -> {
             // Lỗi như TIME_UP: kết quả vẫn đến từ Server qua ANSWER_RESULT, chỉ báo nhẹ ở dòng ghi chú
@@ -668,7 +670,7 @@ public class GamePanel extends JPanel implements Screen {
         }
     }
 
-    /** Thanh thời gian: vàng cam, đỏ khi còn dưới 3 giây. */
+    /** Thanh thời gian sáng trên nền tím, chỉ đổi đỏ khi còn dưới 3 giây. */
     private static final class TimeBar extends JPanel {
         private float fraction = 1f;
         private boolean danger;
@@ -694,8 +696,7 @@ public class GamePanel extends JPanel implements Screen {
             g2.fillRoundRect(0, y, getWidth(), h, h, h);
             int w = Math.round(getWidth() * fraction);
             if (w > 0) {
-                g2.setPaint(danger ? new GradientPaint(0, 0, AppTheme.WRONG, w, 0, new Color(0xB91C1C))
-                        : new GradientPaint(0, 0, AppTheme.ACCENT, Math.max(1, w), 0, AppTheme.ORANGE));
+                g2.setColor(danger ? new Color(0xFCA5A5) : Color.WHITE);
                 g2.fillRoundRect(0, y, w, h, h, h);
             }
             g2.dispose();

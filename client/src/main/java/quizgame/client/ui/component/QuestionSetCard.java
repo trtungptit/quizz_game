@@ -11,18 +11,17 @@ import javax.swing.JPanel;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.Dimension;
-import java.util.Locale;
 
 /** Thẻ một bộ câu hỏi ở trang chủ: SỬA/XÓA chỉ hiện với bộ của mình. */
 public class QuestionSetCard extends CardPanel {
     private final java.util.List<WrappingText> texts = new java.util.ArrayList<>();
     public QuestionSetCard(QuestionSetSummary set, boolean mine, Runnable onPlay, Runnable onEdit, Runnable onDelete) {
-        super(new BorderLayout(), AppTheme.STRIPES[(int) Math.floorMod(set.id(), (long) AppTheme.STRIPES.length)]);
+        super(new BorderLayout());
 
         JPanel body = new JPanel();
         body.setOpaque(false);
         body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
-        WrappingText name = text(set.name().toUpperCase(Locale.ROOT));
+        WrappingText name = text(set.name());
         name.setFont(AppTheme.FONT_TITLE.deriveFont(17f));
         name.setForeground(AppTheme.TITLE);
         WrappingText line = text(Format.setLine(set));
@@ -45,7 +44,9 @@ public class QuestionSetCard extends CardPanel {
         buttons.setOpaque(false);
         if (mine) {
             buttons.add(small(AppButton.soft("SỬA"), onEdit));
-            buttons.add(small(AppButton.soft("XÓA"), onDelete));
+            AppButton delete = AppButton.soft("XÓA");
+            delete.setColors(AppTheme.WRONG_SOFT, AppTheme.WRONG);
+            buttons.add(small(delete, onDelete));
         }
         buttons.add(small(AppButton.primary("CHƠI"), onPlay));
         JPanel footer = new JPanel(new java.awt.GridLayout(0, 1, 0, 6));
