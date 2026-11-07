@@ -6,6 +6,7 @@ import javax.swing.JButton;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Cursor;
+import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -23,6 +24,7 @@ public class AnswerButton extends JButton {
     public AnswerButton(int index, String text) {
         this.index = index;
         this.text = (char) ('A' + index) + ". " + text;
+        setFont(AppTheme.FONT_BOLD.deriveFont(18f));
         setContentAreaFilled(false);
         setBorderPainted(false);
         setFocusPainted(false);
@@ -38,6 +40,17 @@ public class AnswerButton extends JButton {
     /** Chữ hiển thị của đáp án, ví dụ 'B. TCP'. */
     public String answerText() {
         return text;
+    }
+
+    /** Chiều cao tối thiểu để chữ xuống dòng không chạm biểu tượng hoặc dấu kết quả. */
+    public int preferredHeightForWidth(int width) {
+        return Math.max(84, TextLines.wrap(text, getFontMetrics(getFont()), width - 134).size()
+                * getFontMetrics(getFont()).getHeight() + 32);
+    }
+
+    @Override
+    public Dimension getPreferredSize() {
+        return new Dimension(300, preferredHeightForWidth(getWidth() > 0 ? getWidth() : 300));
     }
 
     @Override
@@ -66,11 +79,16 @@ public class AnswerButton extends JButton {
             g2.drawRoundRect(2, 2, w - 5, h - 5, 20, 20);
         }
         g2.setColor(Color.WHITE);
-        g2.setFont(AppTheme.FONT_BOLD.deriveFont(18f));
+        g2.setFont(getFont());
         int cy = h / 2;
-        int ty = (h - g2.getFontMetrics().getHeight()) / 2 + g2.getFontMetrics().getAscent();
+        java.util.List<String> lines = TextLines.wrap(text, g2.getFontMetrics(), w - 134);
+        int lineHeight = g2.getFontMetrics().getHeight();
+        int ty = (h - lineHeight * lines.size()) / 2 + g2.getFontMetrics().getAscent();
         drawSymbol(g2, 36, cy);
-        g2.drawString(text, 64, ty);
+        for (String line : lines) {
+            g2.drawString(line, 64, ty);
+            ty += lineHeight;
+        }
         // Dấu ✓ / ✗ vẽ bằng nét thay vì ký tự để không phụ thuộc font
         g2.setStroke(new BasicStroke(4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         if (state == State.CORRECT) {

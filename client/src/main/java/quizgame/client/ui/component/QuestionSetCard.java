@@ -15,18 +15,19 @@ import java.util.Locale;
 
 /** Thẻ một bộ câu hỏi ở trang chủ: SỬA/XÓA chỉ hiện với bộ của mình. */
 public class QuestionSetCard extends CardPanel {
+    private final java.util.List<WrappingText> texts = new java.util.ArrayList<>();
     public QuestionSetCard(QuestionSetSummary set, boolean mine, Runnable onPlay, Runnable onEdit, Runnable onDelete) {
         super(new BorderLayout(), AppTheme.STRIPES[(int) Math.floorMod(set.id(), (long) AppTheme.STRIPES.length)]);
 
         JPanel body = new JPanel();
         body.setOpaque(false);
         body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
-        JLabel name = new JLabel(set.name().toUpperCase(Locale.ROOT));
+        WrappingText name = text(set.name().toUpperCase(Locale.ROOT));
         name.setFont(AppTheme.FONT_TITLE.deriveFont(17f));
         name.setForeground(AppTheme.TITLE);
-        JLabel line = new JLabel(Format.setLine(set));
+        WrappingText line = text(Format.setLine(set));
         line.setFont(AppTheme.FONT_BASE);
-        JLabel topic = new JLabel("Chủ đề: " + (set.topic() == null ? "" : set.topic()));
+        WrappingText topic = text("Chủ đề: " + (set.topic() == null ? "" : set.topic()));
         topic.setFont(AppTheme.FONT_SMALL.deriveFont(13f));
         topic.setForeground(AppTheme.TEXT_MUTED);
         body.add(name);
@@ -47,11 +48,37 @@ public class QuestionSetCard extends CardPanel {
             buttons.add(small(AppButton.soft("XÓA"), onDelete));
         }
         buttons.add(small(AppButton.primary("CHƠI"), onPlay));
-        JPanel footer = new JPanel(new BorderLayout());
+        JPanel footer = new JPanel(new java.awt.GridLayout(0, 1, 0, 6));
         footer.setOpaque(false);
-        footer.add(share, BorderLayout.WEST);
-        footer.add(buttons, BorderLayout.EAST);
+        footer.add(share);
+        footer.add(buttons);
         add(footer, BorderLayout.SOUTH);
+    }
+
+    private WrappingText text(String value) {
+        WrappingText text = new WrappingText(value);
+        texts.add(text);
+        return text;
+    }
+
+    @Override
+    public Dimension getPreferredSize() {
+        int width = getWidth() > 0 ? getWidth() : 340;
+        java.awt.Insets insets = getInsets();
+        texts.forEach(text -> text.setWrapWidth(width - insets.left - insets.right));
+        // BoxLayout lưu cache kích thước; cập nhật lại khi số dòng thay đổi sau resize.
+        java.awt.Component body = ((BorderLayout) getLayout()).getLayoutComponent(BorderLayout.CENTER);
+        if (body instanceof JPanel panel && panel.getLayout() instanceof BoxLayout layout) {
+            layout.invalidateLayout(panel);
+        }
+        Dimension preferred = super.getPreferredSize();
+        return new Dimension(340, preferred.height);
+    }
+
+    @Override
+    public void doLayout() {
+        getPreferredSize();
+        super.doLayout();
     }
 
     private static AppButton small(AppButton b, Runnable action) {
