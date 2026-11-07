@@ -493,7 +493,7 @@ public class RoomPanel extends JPanel implements Screen {
     private void flash() {
         flashCount++;
         boolean on = flashCount % 2 == 1;
-        readyButton.setColors(on ? AppTheme.SOFT : AppTheme.PRIMARY, on ? AppTheme.PRIMARY : Color.WHITE);
+        readyButton.setColors(on ? AppTheme.ACCENT : AppTheme.PRIMARY, on ? AppTheme.TITLE : Color.WHITE);
         if (flashCount >= 8) {
             flashTimer.stop();
             reminder.setText(" ");

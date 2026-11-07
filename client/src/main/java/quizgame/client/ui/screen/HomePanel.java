@@ -122,7 +122,7 @@ public class HomePanel extends JPanel implements Screen {
         head.add(onlyMine);
         head.add(javax.swing.Box.createVerticalStrut(AppTheme.GAP_S));
 
-        AppButton createRoom = AppButton.primary("TẠO PHÒNG THI ĐẤU");
+        AppButton createRoom = new AppButton("TẠO PHÒNG THI ĐẤU", AppTheme.ACCENT, AppTheme.TITLE);
         createRoom.setFont(AppTheme.FONT_BOLD.deriveFont(17f));
         createRoom.setPreferredSize(new Dimension(100, 56));
         createRoom.addActionListener(e -> createRoomOnly());
@@ -145,12 +145,17 @@ public class HomePanel extends JPanel implements Screen {
     }
 
     private JPanel buildSelfBox() {
-        JPanel box = new CardPanel(new BorderLayout(0, 6));
+        JPanel box = new CardPanel(new BorderLayout(0, 6)) {
+            @Override
+            protected java.awt.Paint fillPaint() {
+                return AppTheme.diagonalGradient(getWidth(), getHeight());
+            }
+        };
         box.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
         selfName.setFont(AppTheme.FONT_TITLE.deriveFont(17f));
-        selfName.setForeground(AppTheme.TEXT);
+        selfName.setForeground(java.awt.Color.WHITE);
         selfWins.setFont(AppTheme.FONT_BASE);
-        selfWins.setForeground(AppTheme.TEXT_MUTED);
+        selfWins.setForeground(java.awt.Color.WHITE);
         box.add(selfName, BorderLayout.NORTH);
         box.add(selfWins, BorderLayout.CENTER);
         return box;

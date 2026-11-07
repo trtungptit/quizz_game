@@ -6,51 +6,43 @@ import javax.swing.UIManager;
 import java.awt.Color;
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Hợp đồng màu và độ tương phản cho giao diện sáng, không cần server. */
+/** Màu gốc kết hợp hình khối và độ dày viền đã sửa; không cần server. */
 class AppThemeVisualTest {
     @Test
-    void neutralSurfacesAndRestrainedCornersMatchApprovedPalette() {
-        assertEquals(new Color(0xF7F8FC), AppTheme.BACKGROUND);
-        assertEquals(new Color(0xE5E7EB), AppTheme.BORDER);
-        assertEquals(new Color(0x6D28D9), AppTheme.PRIMARY);
+    void originalPaletteKeepsRefinedCornersAndFlatButtons() {
+        assertEquals(new Color(0xF4F1FF), AppTheme.BACKGROUND);
+        assertEquals(new Color(0xDDD6FE), AppTheme.BORDER);
+        assertEquals(new Color(0x5B3DF5), AppTheme.PRIMARY);
+        assertEquals(new Color(0x1E1B4B), AppTheme.TEXT);
+        assertEquals(new Color(0x6B7280), AppTheme.TEXT_MUTED);
+        assertEquals(new Color(0x2E1065), AppTheme.TITLE);
+        assertEquals(new Color(0x22C55E), AppTheme.CORRECT);
+        assertEquals(new Color(0xEF4444), AppTheme.WRONG);
         assertTrue(AppTheme.ARC_CARD >= 12 && AppTheme.ARC_CARD <= 14);
         assertTrue(AppTheme.ARC_BUTTON >= 8 && AppTheme.ARC_BUTTON <= 10);
         assertEquals(0, AppTheme.BUTTON_DEPTH, "Nút không còn cạnh nổi giả 3D");
     }
 
     @Test
-    void activeTextAndStatusColorsStayReadable() {
-        for (Color background : new Color[]{AppTheme.CARD, AppTheme.BACKGROUND}) {
-            assertTrue(contrast(AppTheme.TEXT, background) >= 4.5);
-            assertTrue(contrast(AppTheme.TEXT_MUTED, background) >= 4.5);
-        }
-        for (Color background : new Color[]{AppTheme.PRIMARY, AppTheme.CORRECT, AppTheme.WRONG}) {
-            assertTrue(contrast(Color.WHITE, background) >= 4.5,
-                    "Màu trạng thái phải đủ tương phản với chữ trắng: " + background);
-        }
+    void originalPurplePinkGradientReturnsWithoutChangingFontOrSpacing() {
+        java.awt.LinearGradientPaint paint = assertInstanceOf(java.awt.LinearGradientPaint.class,
+                AppTheme.horizontalGradient(200));
+        assertArrayEquals(new Color[]{new Color(0x3B1FD1), new Color(0x7C3AED), new Color(0xC026D3)}, paint.getColors());
+        assertEquals("Segoe UI", AppTheme.FONT_FAMILY);
+        assertEquals(16, AppTheme.GAP_M);
+        assertEquals(24, AppTheme.GAP_L);
     }
 
     @Test
-    void unfocusedInputsUseThinNeutralBorders() throws Exception {
+    void inputsKeepThinBordersAndNewCornerSizeWithOriginalColors() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             AppTheme.install();
             assertEquals(1, UIManager.getInt("Component.borderWidth"));
+            assertEquals(18, UIManager.getInt("TextComponent.arc"));
             assertEquals(AppTheme.BORDER, UIManager.getColor("Component.borderColor"));
             assertEquals(AppTheme.PRIMARY, UIManager.getColor("Component.focusedBorderColor"));
         });
     }
 
-    static double contrast(Color a, Color b) {
-        double x = luminance(a), y = luminance(b);
-        return (Math.max(x, y) + .05) / (Math.min(x, y) + .05);
-    }
 
-    private static double luminance(Color color) {
-        return .2126 * linear(color.getRed()) + .7152 * linear(color.getGreen()) + .0722 * linear(color.getBlue());
-    }
-
-    private static double linear(int value) {
-        double v = value / 255.0;
-        return v <= .04045 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4);
-    }
 }

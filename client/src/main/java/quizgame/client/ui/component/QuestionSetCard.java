@@ -17,6 +17,7 @@ public class QuestionSetCard extends CardPanel {
     private final java.util.List<WrappingText> texts = new java.util.ArrayList<>();
     public QuestionSetCard(QuestionSetSummary set, boolean mine, Runnable onPlay, Runnable onEdit, Runnable onDelete) {
         super(new BorderLayout());
+        setStripe(AppTheme.STRIPES[(int) Math.floorMod(set.id(), (long) AppTheme.STRIPES.length)]);
 
         JPanel body = new JPanel();
         body.setOpaque(false);
@@ -45,7 +46,7 @@ public class QuestionSetCard extends CardPanel {
         if (mine) {
             buttons.add(small(AppButton.soft("SỬA"), onEdit));
             AppButton delete = AppButton.soft("XÓA");
-            delete.setColors(AppTheme.WRONG_SOFT, AppTheme.WRONG);
+            delete.setColors(AppTheme.SOFT, AppTheme.SOFT_TEXT);
             buttons.add(small(delete, onDelete));
         }
         buttons.add(small(AppButton.primary("CHƠI"), onPlay));

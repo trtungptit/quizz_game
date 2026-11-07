@@ -11,7 +11,7 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 
-/** Đáp án nền sáng, ký hiệu có màu; màu đúng/sai chỉ xuất hiện sau khi chấm. */
+/** Bốn màu đáp án gốc; giữ bo góc, xuống dòng, trạng thái chọn và dấu kết quả đã sửa. */
 public class AnswerButton extends JButton {
     /** Trạng thái hiển thị sau khi có kết quả. */
     public enum State { NORMAL, CORRECT, WRONG, DIM }
@@ -25,7 +25,7 @@ public class AnswerButton extends JButton {
         this.index = index;
         this.text = (char) ('A' + index) + ". " + text;
         setText(this.text);
-        setForeground(AppTheme.TEXT);
+        setForeground(Color.WHITE);
         setFont(AppTheme.FONT_BOLD.deriveFont(18f));
         setContentAreaFilled(false);
         setBorderPainted(false);
@@ -37,12 +37,7 @@ public class AnswerButton extends JButton {
 
     public void setState(State state) {
         this.state = state;
-        setForeground(switch (state) {
-            case CORRECT -> AppTheme.CORRECT;
-            case WRONG -> AppTheme.WRONG;
-            case DIM -> AppTheme.TEXT_MUTED;
-            default -> AppTheme.TEXT;
-        });
+        setForeground(Color.WHITE);
         repaint();
     }
 
@@ -72,17 +67,16 @@ public class AnswerButton extends JButton {
         boolean highlighted = state == State.NORMAL && (isSelected() || isEnabled()
                 && (hasFocus() || getModel().isRollover() || getModel().isPressed()));
         Color fill = switch (state) {
-            case DIM -> AppTheme.ROW_BG;
-            case CORRECT -> AppTheme.CORRECT_SOFT;
-            case WRONG -> AppTheme.WRONG_SOFT;
-            default -> highlighted ? AppTheme.SOFT : AppTheme.CARD;
+            case DIM -> mixWithWhite(COLORS[index], .62f);
+            case WRONG -> AppTheme.WRONG;
+            default -> COLORS[index];
         };
         g2.setColor(fill);
         g2.fillRoundRect(0, 0, w, h, 20, 20);
         Color outline = switch (state) {
             case CORRECT -> AppTheme.CORRECT;
-            case WRONG -> AppTheme.WRONG;
-            default -> highlighted ? AppTheme.PRIMARY : AppTheme.BORDER;
+            case WRONG -> new Color(0xB91C1C);
+            default -> highlighted ? Color.WHITE : AppTheme.BORDER;
         };
         g2.setColor(outline);
         g2.setStroke(new BasicStroke(state == State.NORMAL && !highlighted || state == State.DIM ? 1f : 2f));
@@ -92,7 +86,7 @@ public class AnswerButton extends JButton {
         java.util.List<String> lines = TextLines.wrap(text, g2.getFontMetrics(), w - 134);
         int lineHeight = g2.getFontMetrics().getHeight();
         int ty = (h - lineHeight * lines.size()) / 2 + g2.getFontMetrics().getAscent();
-        g2.setColor(state == State.NORMAL ? COLORS[index] : getForeground());
+        g2.setColor(Color.WHITE);
         drawSymbol(g2, 36, cy);
         g2.setColor(getForeground());
         for (String line : lines) {
@@ -108,6 +102,12 @@ public class AnswerButton extends JButton {
             g2.drawLine(w - 56, cy + 9, w - 38, cy - 9);
         }
         g2.dispose();
+    }
+
+    private static Color mixWithWhite(Color color, float ratio) {
+        return new Color(Math.round(color.getRed() * (1 - ratio) + 255 * ratio),
+                Math.round(color.getGreen() * (1 - ratio) + 255 * ratio),
+                Math.round(color.getBlue() * (1 - ratio) + 255 * ratio));
     }
 
     /** Vẽ ký hiệu ▲ ◆ ● ■ bằng hình học. */

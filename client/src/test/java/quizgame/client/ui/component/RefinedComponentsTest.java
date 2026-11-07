@@ -13,63 +13,66 @@ import static org.junit.jupiter.api.Assertions.*;
 /** Kiểm tra kết quả vẽ thật thay vì chỉ kiểm tra token màu. */
 class RefinedComponentsTest {
     @Test
-    void secondaryButtonsUseNeutralSurfaceAndHoverFeedback() throws Exception {
+    void secondaryButtonsUseOriginalSoftPurpleAndKeepHoverFeedback() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             AppTheme.install();
             AppButton button = AppButton.soft("Sửa");
             button.setSize(160, 44);
             int normal = render(button).getRGB(40, 10);
-            assertEquals(AppTheme.NEUTRAL.getRGB(), normal);
-            assertEquals(AppTheme.TEXT, button.getForeground());
+            assertEquals(AppTheme.SOFT.getRGB(), normal);
+            assertEquals(AppTheme.SOFT_TEXT, button.getForeground());
             button.getModel().setRollover(true);
             assertNotEquals(normal, render(button).getRGB(40, 10));
         });
     }
 
     @Test
-    void questionSetCardsHaveNoIdBasedStripeAndKeepOriginalTitleCase() throws Exception {
+    void questionSetCardsRestoreStripeColorWithoutChangingInsetsOrTitleCase() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             AppTheme.install();
             QuestionSetCard card = new QuestionSetCard(new QuestionSetSummary(2, "Sinh học căn bản", "Sinh học",
                     "tester", 10, List.of(QuestionType.SINGLE), false), true, () -> {}, () -> {}, () -> {});
             card.setSize(340, 260);
             BufferedImage image = render(card);
-            assertEquals(AppTheme.CARD.getRGB(), image.getRGB(170, 3));
-            assertEquals(AppTheme.BORDER.getRGB(), image.getRGB(170, 0));
+            assertEquals(new Color(0xF59E0B).getRGB(), image.getRGB(170, 3));
+            assertEquals(12, card.getInsets().top, "Không thêm lại khoảng đệm 7 px của thẻ cũ");
             assertTrue(findText(card, "Sinh học căn bản"), "Không viết hoa toàn bộ tên bộ");
         });
     }
 
     @Test
-    void tableHeadersUseQuietNeutralSurfaceWithoutBreakingSelection() throws Exception {
+    void tableHeadersRestoreGradientWithoutBreakingSelection() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             AppTheme.install();
             StyledTable table = new StyledTable("Tên", "Điểm");
             Component header = table.getTableHeader().getDefaultRenderer()
                     .getTableCellRendererComponent(table, "Tên", false, false, -1, 0);
             header.setSize(200, 34);
-            assertEquals(AppTheme.TEXT_MUTED, header.getForeground());
-            assertEquals(AppTheme.ROW_BG.getRGB(), render((JComponent) header).getRGB(180, 8));
+            assertEquals(Color.WHITE, header.getForeground());
+            BufferedImage image = render((JComponent) header);
+            assertNotEquals(image.getRGB(20, 8), image.getRGB(180, 8));
         });
     }
 
     @Test
-    void sectionUnderlineUsesBrandInsteadOfDecorativeOrange() throws Exception {
+    void sectionUnderlineRestoresGoldOrangeWithoutChangingThickness() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             AppTheme.install();
             JComponent underline = (JComponent) new SectionTitle("Bộ câu hỏi").getComponent(1);
             underline.setSize(100, 5);
-            assertEquals(AppTheme.PRIMARY.getRGB(), render(underline).getRGB(10, 2));
+            BufferedImage image = render(underline);
+            assertNotEquals(image.getRGB(10, 2), image.getRGB(50, 2));
         });
     }
 
     @Test
-    void resultBannerUsesQuietLightGoldRatherThanAnotherGradient() throws Exception {
+    void resultBannerRestoresGoldOrangeGradient() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             AppTheme.install();
             JPanel banner = GradientPanel.accent(new BorderLayout(), AppTheme.ARC_CARD * 2);
             banner.setSize(300, 90);
-            assertEquals(AppTheme.HIGHLIGHT.getRGB(), render(banner).getRGB(250, 15));
+            BufferedImage image = render(banner);
+            assertNotEquals(image.getRGB(20, 15), image.getRGB(250, 15));
         });
     }
 

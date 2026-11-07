@@ -5,6 +5,7 @@ import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.LayoutManager;
+import java.awt.Paint;
 import java.awt.RenderingHints;
 import java.awt.Shape;
 import java.awt.geom.RoundRectangle2D;
@@ -38,11 +39,16 @@ public class RoundPanel extends JPanel {
         return new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), arc, arc);
     }
 
+    /** Cho phép đổi màu/gradient nền mà không thay hình khối hoặc cách bố trí. */
+    protected Paint fillPaint() {
+        return fill;
+    }
+
     @Override
     protected void paintComponent(Graphics g) {
         Graphics2D g2 = (Graphics2D) g.create();
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2.setColor(fill);
+        g2.setPaint(fillPaint());
         g2.fill(shape());
         if (outline != null) {
             g2.setColor(outline);

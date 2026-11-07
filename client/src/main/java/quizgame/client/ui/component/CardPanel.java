@@ -11,7 +11,7 @@ import java.awt.LayoutManager;
 /** Thẻ trắng bo góc, có thể có dải màu ở trên; nội dung bị cắt theo góc bo. */
 public class CardPanel extends RoundPanel {
     private static final int STRIPE_HEIGHT = 7;
-    private final Color stripe;
+    private Color stripe;
 
     public CardPanel(LayoutManager layout, Color stripe) {
         super(layout, AppTheme.CARD, AppTheme.ARC_CARD * 2);
@@ -23,6 +23,12 @@ public class CardPanel extends RoundPanel {
 
     public CardPanel(LayoutManager layout) {
         this(layout, null);
+    }
+
+    /** Chỉ đổi màu vẽ dải trên thẻ; giữ nguyên padding và kích thước hiện tại. */
+    public void setStripe(Color stripe) {
+        this.stripe = stripe;
+        repaint();
     }
 
     @Override

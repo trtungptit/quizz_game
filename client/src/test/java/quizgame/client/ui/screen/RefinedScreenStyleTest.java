@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class RefinedScreenStyleTest {
     @Test
-    void homeAndNavigationUseOneBrandAccent() throws Exception {
+    void homeAndNavigationRestoreGoldAccentAndKeepActions() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             AppTheme.install();
             MainFrame frame = frame();
@@ -26,11 +26,11 @@ class RefinedScreenStyleTest {
                 AbstractButton create = findButton(home, "TẠO PHÒNG THI ĐẤU");
                 assertNotNull(create);
                 create.setSize(300, 56);
-                assertEquals(AppTheme.PRIMARY.getRGB(), paint(create).getRGB(100, 10));
-                assertEquals(AppTheme.TEXT, ((JLabel) get(home, "selfName")).getForeground());
+                assertEquals(AppTheme.ACCENT.getRGB(), paint(create).getRGB(100, 10));
+                assertEquals(Color.WHITE, ((JLabel) get(home, "selfName")).getForeground());
                 NavBar nav = new NavBar(key -> {}, () -> {});
                 JLabel logo = findLabel(nav, AppTheme.APP_NAME);
-                assertEquals(Color.WHITE, logo.getForeground());
+                assertEquals(AppTheme.ACCENT, logo.getForeground());
             } finally { frame.dispose(); }
         });
     }
@@ -52,8 +52,10 @@ class RefinedScreenStyleTest {
                     assertEquals(i == 1, buttons[i].isSelected());
                 }
                 game.onAnswerResult(new AnswerResult(0, false, List.of(2), List.of(), 0, 0));
-                assertEquals(AppTheme.WRONG, buttons[1].getForeground());
-                assertEquals(AppTheme.CORRECT, buttons[2].getForeground());
+                buttons[1].setSize(360, 84);
+                buttons[2].setSize(360, 84);
+                assertEquals(AppTheme.WRONG.getRGB(), paint(buttons[1]).getRGB(160, 15));
+                assertEquals(AppTheme.ANSWER_C.getRGB(), paint(buttons[2]).getRGB(160, 15));
                 game.onQuestion(question(QuestionType.SINGLE, 1));
                 for (AnswerButton b : (AnswerButton[]) get(game, "singleButtons")) {
                     assertFalse(b.isSelected());

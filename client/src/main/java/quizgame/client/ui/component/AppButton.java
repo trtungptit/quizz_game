@@ -35,9 +35,9 @@ public class AppButton extends JButton {
         return new AppButton(text, AppTheme.PRIMARY, Color.WHITE);
     }
 
-    /** Nút phụ nền trung tính, không cạnh tranh với hành động chính. */
+    /** Màu nút phụ tím nhạt gốc; vẫn giữ kiểu nút phẳng và phản hồi tương tác mới. */
     public static AppButton soft(String text) {
-        return new AppButton(text, AppTheme.NEUTRAL, AppTheme.TEXT);
+        return new AppButton(text, AppTheme.SOFT, AppTheme.SOFT_TEXT);
     }
 
     /** Đổi màu nền và chữ (dùng cho tab đang chọn / không chọn). */

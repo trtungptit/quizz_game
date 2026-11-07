@@ -9,16 +9,16 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class AnswerButtonVisualTest {
     @Test
-    void normalAnswersUseQuietSurfaceWithDarkTextAndAccessibleName() throws Exception {
+    void normalAnswersRestoreFourColorsAndKeepAccessibleName() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             AppTheme.install();
             for (int i = 0; i < 4; i++) {
                 AnswerButton button = new AnswerButton(i, "Đáp án thử nghiệm");
                 button.setSize(360, 84);
-                assertEquals(AppTheme.CARD.getRGB(), RefinedComponentsTest.render(button).getRGB(160, 15));
-                assertEquals(AppTheme.TEXT, button.getForeground());
+                assertEquals(optionColor(i).getRGB(), RefinedComponentsTest.render(button).getRGB(160, 15));
+                assertEquals(Color.WHITE, button.getForeground());
                 assertEquals(button.answerText(), button.getAccessibleContext().getAccessibleName());
-                assertEquals(AppTheme.PRIMARY.getRGB(), hoverBorder(button));
+                assertEquals(Color.WHITE.getRGB(), hoverBorder(button));
             }
         });
     }
@@ -33,20 +33,24 @@ class AnswerButtonVisualTest {
                 button.setEnabled(false);
                 button.setState(AnswerButton.State.CORRECT);
                 BufferedImage correct = RefinedComponentsTest.render(button);
-                assertEquals(AppTheme.CORRECT_SOFT.getRGB(), correct.getRGB(160, 15));
-                assertEquals(AppTheme.CORRECT, button.getForeground());
-                assertTrue(count(correct, AppTheme.CORRECT, 290, 20, 350, 65) > 30, "Phải có dấu tích");
+                assertEquals(optionColor(i).getRGB(), correct.getRGB(160, 15));
+                assertEquals(Color.WHITE, button.getForeground());
+                assertTrue(count(correct, Color.WHITE, 290, 20, 350, 65) > 30, "Phải có dấu tích");
                 button.setState(AnswerButton.State.WRONG);
                 BufferedImage wrong = RefinedComponentsTest.render(button);
-                assertEquals(AppTheme.WRONG_SOFT.getRGB(), wrong.getRGB(160, 15));
-                assertEquals(AppTheme.WRONG, button.getForeground());
-                assertTrue(count(wrong, AppTheme.WRONG, 290, 20, 350, 65) > 30, "Phải có dấu chéo");
+                assertEquals(AppTheme.WRONG.getRGB(), wrong.getRGB(160, 15));
+                assertEquals(Color.WHITE, button.getForeground());
+                assertTrue(count(wrong, Color.WHITE, 290, 20, 350, 65) > 30, "Phải có dấu chéo");
                 button.setState(AnswerButton.State.DIM);
-                assertEquals(AppTheme.TEXT_MUTED, button.getForeground());
+                assertEquals(Color.WHITE, button.getForeground());
                 button.setState(AnswerButton.State.NORMAL);
-                assertEquals(AppTheme.TEXT, button.getForeground());
+                assertEquals(Color.WHITE, button.getForeground());
             }
         });
+    }
+
+    private static Color optionColor(int index) {
+        return new Color[]{AppTheme.ANSWER_A, AppTheme.ANSWER_B, AppTheme.ANSWER_C, AppTheme.ANSWER_D}[index];
     }
 
     private static int hoverBorder(AnswerButton button) {
