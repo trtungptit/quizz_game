@@ -6,7 +6,7 @@ import quizgame.client.ui.Dialogs;
 import quizgame.client.ui.MainFrame;
 import quizgame.client.ui.Screen;
 import quizgame.client.ui.component.AppButton;
-import quizgame.client.ui.component.GradientPanel;
+import quizgame.client.ui.component.CardPanel;
 import quizgame.client.ui.component.OnlinePlayersPanel;
 import quizgame.client.ui.component.OnlineUsersModel;
 import quizgame.client.ui.component.QuestionSetCard;
@@ -145,7 +145,12 @@ public class HomePanel extends JPanel implements Screen {
     }
 
     private JPanel buildSelfBox() {
-        JPanel box = GradientPanel.diagonal(new BorderLayout(0, 6), AppTheme.ARC_CARD * 2);
+        JPanel box = new CardPanel(new BorderLayout(0, 6)) {
+            @Override
+            protected java.awt.Paint fillPaint() {
+                return AppTheme.diagonalGradient(getWidth(), getHeight());
+            }
+        };
         box.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
         selfName.setFont(AppTheme.FONT_TITLE.deriveFont(17f));
         selfName.setForeground(java.awt.Color.WHITE);

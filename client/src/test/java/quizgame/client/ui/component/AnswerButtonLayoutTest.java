@@ -22,17 +22,17 @@ class AnswerButtonLayoutTest {
             Graphics2D graphics = image.createGraphics();
             button.paint(graphics);
             graphics.dispose();
-            int whitePixelsOutsideMiddleLine = 0;
+            int textPixelsOutsideMiddleLine = 0;
             for (int y = 15; y < 205; y++) {
                 if (y >= 90 && y <= 130) continue;
                 for (int x = 64; x < 240; x++) {
                     Color pixel = new Color(image.getRGB(x, y));
-                    if (pixel.getRed() > 240 && pixel.getGreen() > 240 && pixel.getBlue() > 240) {
-                        whitePixelsOutsideMiddleLine++;
+                    if (pixel.equals(button.getForeground())) {
+                        textPixelsOutsideMiddleLine++;
                     }
                 }
             }
-            assertTrue(whitePixelsOutsideMiddleLine > 30,
+            assertTrue(textPixelsOutsideMiddleLine > 30,
                     "Chữ đáp án dài phải được vẽ trên nhiều dòng, không chỉ một dòng giữa nút");
         });
     }

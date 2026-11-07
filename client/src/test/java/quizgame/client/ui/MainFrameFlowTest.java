@@ -28,6 +28,7 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
@@ -207,6 +208,20 @@ class MainFrameFlowTest {
         return frame.currentScreen();
     }
 
+    private boolean hasLabelOnEdt(String text) {
+        AtomicBoolean found = new AtomicBoolean();
+        try {
+            onEdt(() -> {
+                List<Component> labels = new ArrayList<>();
+                collect(frame.getContentPane(), JLabel.class, labels);
+                found.set(labels.stream().anyMatch(l -> text.equals(((JLabel) l).getText())));
+            });
+        } catch (Exception e) {
+            throw new AssertionError(e);
+        }
+        return found.get();
+    }
+
     // ---------------------------------------------------------------- Các tình huống
 
     private void enterResult() throws Exception {
@@ -341,9 +356,11 @@ class MainFrameFlowTest {
 
         // Trận đấu
         push("{\"type\":\"GAME_START\",\"data\":{\"numQuestions\":1,\"imagesBase64\":{}}}");
+        waitFor("sang màn chơi", () -> MainFrame.GAME.equals(screen()));
+        assertTrue(hasLabelOnEdt("CÂU 0/1"), "GAME_START chưa đồng nghĩa đã nhận QUESTION");
         push("{\"type\":\"QUESTION\",\"data\":{\"qIndex\":0,\"total\":1,\"type\":\"SINGLE\",\"content\":\"1+1=?\","
                 + "\"options\":[\"1\",\"2\",\"3\",\"4\"],\"imageId\":null,\"timeLimitMs\":10000}}");
-        waitFor("sang màn chơi", () -> MainFrame.GAME.equals(screen()));
+        waitFor("câu hỏi đầu tiên sau sự kiện QUESTION", () -> hasLabelOnEdt("CÂU 1/1"));
         onEdt(() -> {
             List<Component> labels = new ArrayList<>();
             collect(frame.getContentPane(), JLabel.class, labels);

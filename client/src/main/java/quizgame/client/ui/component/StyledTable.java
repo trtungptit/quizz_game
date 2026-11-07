@@ -19,7 +19,7 @@ import java.awt.LinearGradientPaint;
 import java.awt.geom.Point2D;
 import java.util.List;
 
-/** Bảng chỉ đọc: tiêu đề gradient, dòng cao, không lưới; màu nền và chữ đậm theo từng ô. */
+/** Bảng chỉ đọc: tiêu đề gradient gốc, giữ kích thước và sửa lỗi vùng chọn. */
 public class StyledTable extends JTable {
     /** Quy định kiểu của từng ô. */
     public interface CellStyle {
@@ -90,7 +90,7 @@ public class StyledTable extends JTable {
         rows.forEach(model::addRow);
     }
 
-    /** Tiêu đề: gradient chạy suốt chiều rộng bảng, mỗi ô lấy đúng đoạn của mình. */
+    /** Mỗi ô tiêu đề lấy đúng đoạn gradient trên toàn chiều rộng bảng. */
     private final class HeaderRenderer extends JLabel implements TableCellRenderer {
         private int offsetX;
         private int totalWidth = 1;
@@ -107,9 +107,7 @@ public class StyledTable extends JTable {
                                                        int row, int column) {
             setText(value == null ? "" : value.toString().toUpperCase());
             offsetX = 0;
-            for (int i = 0; i < column; i++) {
-                offsetX += table.getColumnModel().getColumn(i).getWidth();
-            }
+            for (int i = 0; i < column; i++) offsetX += table.getColumnModel().getColumn(i).getWidth();
             totalWidth = Math.max(1, table.getColumnModel().getTotalColumnWidth());
             return this;
         }

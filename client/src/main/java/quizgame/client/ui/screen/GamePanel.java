@@ -534,9 +534,9 @@ public class GamePanel extends JPanel implements Screen {
             case MULTI -> {
                 for (int i = 0; i < 4; i++) {
                     if (correct.contains(i)) {
-                        multiRows[i].setBackground(new Color(0xBBF7D0));
+                        multiRows[i].setBackground(AppTheme.CORRECT_SOFT);
                     } else if (chosen.contains(i)) {
-                        multiRows[i].setBackground(new Color(0xFECACA));
+                        multiRows[i].setBackground(AppTheme.WRONG_SOFT);
                     }
                 }
             }
@@ -619,6 +619,9 @@ public class GamePanel extends JPanel implements Screen {
             return;
         }
         chosen = answer.choices() == null ? List.of() : List.copyOf(answer.choices());
+        if (current.type() == QuestionType.SINGLE) {
+            for (int i = 0; i < singleButtons.length; i++) singleButtons[i].setSelected(chosen.contains(i));
+        }
         lock();
         Async.ui(frame.client().answer(current.qIndex(), answer), v -> { }, error -> {
             // Lỗi như TIME_UP: kết quả vẫn đến từ Server qua ANSWER_RESULT, chỉ báo nhẹ ở dòng ghi chú
@@ -668,7 +671,7 @@ public class GamePanel extends JPanel implements Screen {
         }
     }
 
-    /** Thanh thời gian: vàng cam, đỏ khi còn dưới 3 giây. */
+    /** Thanh thời gian vàng–cam gốc, đổi đỏ khi còn dưới 3 giây; không đổi kích thước. */
     private static final class TimeBar extends JPanel {
         private float fraction = 1f;
         private boolean danger;
@@ -694,7 +697,7 @@ public class GamePanel extends JPanel implements Screen {
             g2.fillRoundRect(0, y, getWidth(), h, h, h);
             int w = Math.round(getWidth() * fraction);
             if (w > 0) {
-                g2.setPaint(danger ? new GradientPaint(0, 0, AppTheme.WRONG, w, 0, new Color(0xB91C1C))
+                g2.setPaint(danger ? new GradientPaint(0, 0, AppTheme.WRONG, Math.max(1, w), 0, new Color(0xB91C1C))
                         : new GradientPaint(0, 0, AppTheme.ACCENT, Math.max(1, w), 0, AppTheme.ORANGE));
                 g2.fillRoundRect(0, y, w, h, h, h);
             }

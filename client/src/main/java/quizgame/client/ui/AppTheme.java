@@ -9,7 +9,7 @@ import java.awt.LinearGradientPaint;
 import java.awt.Paint;
 import java.awt.geom.Point2D;
 
-/** Màu, font, khoảng cách dùng chung và hàm cài FlatLaf theo phong cách của spec. */
+/** Bảng màu gốc; giữ kích thước, font và hình khối của bản giao diện đã sửa. */
 public final class AppTheme {
     public static final String APP_NAME = "QUIZ";
 
@@ -22,6 +22,9 @@ public final class AppTheme {
     public static final Color ACCENT = new Color(0xFFC83D);
     public static final Color CORRECT = new Color(0x22C55E);
     public static final Color WRONG = new Color(0xEF4444);
+    public static final Color CORRECT_SOFT = new Color(0xBBF7D0);
+    public static final Color WRONG_SOFT = new Color(0xFECACA);
+    public static final Color NEUTRAL = new Color(0xEDE9FE);
     public static final Color CARD = Color.WHITE;
     public static final Color TEXT = new Color(0x1E1B4B);
     public static final Color TEXT_MUTED = new Color(0x6B7280);
@@ -36,12 +39,9 @@ public final class AppTheme {
     public static final Color SILVER = new Color(0xD9DCE3);
     public static final Color BRONZE = new Color(0xF4B27A);
     public static final Color ROW_BG = new Color(0xF8F6FF);
-    // Dải màu trên đầu các thẻ
     public static final Color[] STRIPES = {
             new Color(0x7C3AED), new Color(0xEC4899), new Color(0xF59E0B), new Color(0x10B981), new Color(0x3B82F6)
     };
-
-    // Bốn màu nút đáp án: A đỏ, B xanh dương, C cam, D xanh lá
     public static final Color ANSWER_A = new Color(0xEF4444);
     public static final Color ANSWER_B = new Color(0x3B82F6);
     public static final Color ANSWER_C = new Color(0xF59E0B);
@@ -59,9 +59,9 @@ public final class AppTheme {
     public static final int GAP_S = 8;
     public static final int GAP_M = 16;
     public static final int GAP_L = 24;
-    public static final int ARC_CARD = 18;
-    public static final int ARC_BUTTON = 12;
-    public static final int BUTTON_DEPTH = 3;
+    public static final int ARC_CARD = 14;
+    public static final int ARC_BUTTON = 9;
+    public static final int BUTTON_DEPTH = 0;
 
     private AppTheme() {
     }
@@ -69,10 +69,10 @@ public final class AppTheme {
     /** Cài FlatLaf sáng và các thuộc tính UIManager cho phong cách của ứng dụng. */
     public static void install() {
         FlatLightLaf.setup();
-        UIManager.put("Component.arc", 16);
-        UIManager.put("Button.arc", 12);
-        UIManager.put("TextComponent.arc", 12);
-        UIManager.put("Component.borderWidth", 2);
+        UIManager.put("Component.arc", 18);
+        UIManager.put("Button.arc", 18);
+        UIManager.put("TextComponent.arc", 18);
+        UIManager.put("Component.borderWidth", 1);
         UIManager.put("Component.borderColor", BORDER);
         UIManager.put("Component.focusedBorderColor", PRIMARY);
         UIManager.put("Component.focusColor", PRIMARY);
@@ -111,7 +111,7 @@ public final class AppTheme {
         }
     }
 
-    /** Gradient ngang tím -> tím sáng -> hồng cho thanh điều hướng. */
+    /** Gradient tím–hồng gốc, không thay kích thước thanh điều hướng. */
     public static Paint horizontalGradient(int width) {
         return gradient(new Point2D.Float(0, 0), new Point2D.Float(Math.max(width, 1), 0));
     }

@@ -3,9 +3,9 @@ package quizgame.client.ui.component;
 import quizgame.client.ui.AppTheme;
 
 import javax.swing.JPanel;
-import java.awt.GradientPaint;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.GradientPaint;
 import java.awt.LayoutManager;
 import java.awt.Paint;
 import java.awt.RenderingHints;
@@ -28,19 +28,19 @@ public class GradientPanel extends JPanel {
         setOpaque(false);
     }
 
-    /** Gradient ngang tím -> tím sáng -> hồng. */
+    /** Gradient tím–hồng gốc cho các thanh điều hướng. */
     public static GradientPanel horizontal(LayoutManager layout) {
         return new GradientPanel(layout, (w, h) -> AppTheme.horizontalGradient(w), 0);
     }
 
-    /** Gradient chéo tím -> hồng. */
+    /** Gradient chéo tím–hồng gốc. */
     public static GradientPanel diagonal(LayoutManager layout, int arc) {
         return new GradientPanel(layout, AppTheme::diagonalGradient, arc);
     }
 
-    /** Gradient vàng -> cam (biểu ngữ người thắng). */
+    /** Gradient vàng–cam gốc, giữ nguyên bo góc và kích thước biểu ngữ. */
     public static GradientPanel accent(LayoutManager layout, int arc) {
-        return new GradientPanel(layout, (w, h) -> new GradientPaint(0, 0, AppTheme.ACCENT, w, 0, AppTheme.ORANGE), arc);
+        return new GradientPanel(layout, (w, h) -> new GradientPaint(0, 0, AppTheme.ACCENT, Math.max(1, w), 0, AppTheme.ORANGE), arc);
     }
 
     @Override

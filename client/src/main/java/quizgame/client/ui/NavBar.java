@@ -19,7 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 
-/** Thanh điều hướng nền gradient: QUIZ, TRANG CHỦ, XẾP HẠNG, LỊCH SỬ và ĐĂNG XUẤT. */
+/** Thanh điều hướng gradient màu gốc: giữ nguyên vị trí và hành động các mục. */
 public class NavBar extends GradientPanel {
     private final Map<String, NavItem> items = new LinkedHashMap<>();
 
