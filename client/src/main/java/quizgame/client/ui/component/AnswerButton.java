@@ -1,6 +1,7 @@
 package quizgame.client.ui.component;
 
 import quizgame.client.ui.AppTheme;
+import quizgame.client.util.SoundPlayer;
 
 import javax.swing.JButton;
 import java.awt.BasicStroke;
@@ -33,6 +34,7 @@ public class AnswerButton extends JButton {
         setOpaque(false);
         setRolloverEnabled(true);
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        addActionListener(e -> SoundPlayer.click());
     }
 
     public void setState(State state) {

@@ -14,6 +14,7 @@ import quizgame.client.ui.component.WidthTrackingPanel;
 import quizgame.client.ui.component.WrappingText;
 import quizgame.client.util.Async;
 import quizgame.client.util.ImageUtil;
+import quizgame.client.util.SoundPlayer;
 import quizgame.common.model.Answer;
 import quizgame.common.model.AnswerResult;
 import quizgame.common.model.GameStart;
@@ -332,6 +333,7 @@ public class GamePanel extends JPanel implements Screen {
     @Override
     public void onHide() {
         countdown.stop();
+        SoundPlayer.stopMusic();
     }
 
     /** Bắt đầu trận: giải mã ảnh một lần để dùng lại cho mọi câu. */
@@ -362,12 +364,14 @@ public class GamePanel extends JPanel implements Screen {
         timeBar.setFraction(1f, false);
         secondsLabel.setText("");
         countdown.stop();
+        SoundPlayer.startMusic();
     }
 
-    /** Kết thúc trận: dừng đồng hồ và không nhận thêm sự kiện. */
+    /** Kết thúc trận: dừng đồng hồ, tắt nhạc nền và không nhận thêm sự kiện. */
     public void end() {
         active = false;
         countdown.stop();
+        SoundPlayer.stopMusic();
     }
 
     public int totalQuestions() {
@@ -543,6 +547,11 @@ public class GamePanel extends JPanel implements Screen {
             case TYPE -> { }
         }
         showBanner(r, hadAnswered);
+        if (r.correct()) {
+            SoundPlayer.correct();
+        } else {
+            SoundPlayer.wrong(); // sai hoặc hết giờ
+        }
         if (r.qIndex() + 1 >= current.total()) {
             waiting.setText("Đã xong, đang chờ người khác");
         }
