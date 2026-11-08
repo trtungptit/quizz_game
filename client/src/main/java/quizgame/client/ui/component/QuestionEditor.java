@@ -1,5 +1,7 @@
 package quizgame.client.ui.component;
 
+import quizgame.client.util.SoundPlayer;
+
 import quizgame.client.ui.AppTheme;
 import quizgame.client.util.DraftValidator;
 import quizgame.common.model.QuestionDraft;
@@ -242,6 +244,7 @@ public class QuestionEditor extends JPanel {
                 radio.setOpaque(false);
                 radio.setSelected(index == singleCorrect);
                 radio.addActionListener(e -> {
+                    SoundPlayer.click();
                     singleCorrect = index;
                     refreshHighlights();
                     fireChange();

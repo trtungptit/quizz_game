@@ -1,5 +1,7 @@
 package quizgame.client.ui.screen;
 
+import quizgame.client.util.SoundPlayer;
+
 import com.formdev.flatlaf.FlatClientProperties;
 import quizgame.client.ui.AppTheme;
 import quizgame.client.ui.Dialogs;
@@ -106,7 +108,7 @@ public class HomePanel extends JPanel implements Screen {
         searchRow.add(search, BorderLayout.CENTER);
         searchRow.add(createSet, BorderLayout.EAST);
         onlyMine.setOpaque(false);
-        onlyMine.addActionListener(e -> renderSets());
+        onlyMine.addActionListener(e -> { SoundPlayer.click(); renderSets(); });
 
         JPanel head = new JPanel();
         head.setOpaque(false);

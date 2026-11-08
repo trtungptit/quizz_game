@@ -1,5 +1,7 @@
 package quizgame.client.ui.component;
 
+import quizgame.client.util.SoundPlayer;
+
 import quizgame.client.ui.AppTheme;
 import javax.swing.*;
 import java.awt.*;
@@ -26,7 +28,10 @@ public final class IllustratedChoiceButton extends JButton {
         setToolTipText(title + " — " + description);
         getAccessibleContext().setAccessibleName(title);
         getAccessibleContext().setAccessibleDescription(description);
-        addActionListener(event -> action.run());
+        addActionListener(event -> {
+            SoundPlayer.click();
+            action.run();
+        });
         getInputMap(WHEN_FOCUSED).put(KeyStroke.getKeyStroke("ENTER"), "activateChoice");
         getActionMap().put("activateChoice", new AbstractAction() {
             @Override public void actionPerformed(ActionEvent event) { doClick(0); }

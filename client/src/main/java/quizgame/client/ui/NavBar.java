@@ -39,6 +39,7 @@ public class NavBar extends GradientPanel {
         logo.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
+                SoundPlayer.click();
                 onNavigate.accept(MainFrame.HOME);
             }
         });

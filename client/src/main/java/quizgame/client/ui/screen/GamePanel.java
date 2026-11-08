@@ -225,6 +225,7 @@ public class GamePanel extends JPanel implements Screen {
             multiChecks[i] = new JCheckBox();
             multiChecks[i].setOpaque(false);
             multiChecks[i].setFont(AppTheme.FONT_BOLD.deriveFont(17f));
+            multiChecks[i].addActionListener(e -> SoundPlayer.click());
             multiChecks[i].addActionListener(e -> multiConfirm.setEnabled(!ticked().isEmpty() && !answered));
             JPanel row = new JPanel(new BorderLayout());
             row.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));

@@ -1,5 +1,7 @@
 package quizgame.client.ui.screen;
 
+import quizgame.client.util.SoundPlayer;
+
 import quizgame.client.ui.AppTheme;
 import quizgame.client.ui.Format;
 import quizgame.client.ui.MainFrame;
@@ -41,6 +43,7 @@ public class HistoryPanel extends JPanel implements Screen {
             public void mouseClicked(MouseEvent e) {
                 int row = table.rowAtPoint(e.getPoint());
                 if (e.getClickCount() == 2 && row >= 0 && row < matches.size()) {
+                    SoundPlayer.click();
                     MatchDetailDialog.show(frame, frame.client(), frame.username(), matches.get(row));
                 }
             }

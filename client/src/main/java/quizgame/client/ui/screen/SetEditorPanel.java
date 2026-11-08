@@ -1,5 +1,7 @@
 package quizgame.client.ui.screen;
 
+import quizgame.client.util.SoundPlayer;
+
 import quizgame.client.ui.AppTheme;
 import quizgame.client.ui.Dialogs;
 import quizgame.client.ui.MainFrame;
@@ -205,7 +207,7 @@ public class SetEditorPanel extends JPanel implements Screen {
         JPopupMenu menu = new JPopupMenu();
         for (QuestionType t : QuestionType.values()) {
             JMenuItem item = new JMenuItem(t.label());
-            item.addActionListener(e -> addQuestion(t));
+            item.addActionListener(e -> { SoundPlayer.click(); addQuestion(t); });
             menu.add(item);
         }
         return menu;
@@ -214,9 +216,9 @@ public class SetEditorPanel extends JPanel implements Screen {
     private JPopupMenu fileMenu() {
         JPopupMenu menu = new JPopupMenu();
         JMenuItem download = new JMenuItem("Tải CSV mẫu");
-        download.addActionListener(e -> downloadTemplate());
+        download.addActionListener(e -> { SoundPlayer.click(); downloadTemplate(); });
         JMenuItem imp = new JMenuItem("Nhập từ CSV");
-        imp.addActionListener(e -> importFile());
+        imp.addActionListener(e -> { SoundPlayer.click(); importFile(); });
         menu.add(download);
         menu.add(imp);
         return menu;
@@ -538,6 +540,7 @@ public class SetEditorPanel extends JPanel implements Screen {
             setOpaque(false);
             setFont(AppTheme.FONT_BOLD);
             setForeground(selected ? Color.WHITE : AppTheme.TEXT);
+            addActionListener(e -> SoundPlayer.click());
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             setPreferredSize(new Dimension(Math.max(44, 20 + 9 * String.valueOf(number).length()), 44));
         }
