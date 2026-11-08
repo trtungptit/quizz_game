@@ -9,6 +9,7 @@ import quizgame.client.ui.component.AnswerButton;
 import quizgame.client.ui.component.AppButton;
 import quizgame.client.ui.component.CardPanel;
 import quizgame.client.ui.component.GameScoreList;
+import quizgame.client.ui.component.GiftBoxPanel;
 import quizgame.client.ui.component.ScoreWindow;
 import quizgame.client.ui.component.TimerRing;
 import quizgame.client.ui.component.WidthTrackingPanel;
@@ -18,6 +19,10 @@ import quizgame.client.util.ImageUtil;
 import quizgame.client.util.SoundPlayer;
 import quizgame.common.model.Answer;
 import quizgame.common.model.AnswerResult;
+import quizgame.common.model.BoxEffect;
+import quizgame.common.model.BoxOffer;
+import quizgame.common.model.BoxResult;
+import quizgame.common.model.BoxStatus;
 import quizgame.common.model.GameStart;
 import quizgame.common.model.Question;
 import quizgame.common.model.QuestionType;
@@ -50,6 +55,8 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 import java.util.Map;
 
@@ -91,6 +98,15 @@ public class GamePanel extends JPanel implements Screen {
     private final JLabel notices = new JLabel(" ");
     private final List<String> noticeLines = new ArrayList<>();
 
+    // Hộp quà: vùng giữa có 2 chế độ PLAY (câu hỏi) và BOX (chọn hộp)
+    private final CardLayout modeLayout = new CardLayout();
+    private final JPanel modes = new JPanel(modeLayout);
+    private final GiftBoxPanel giftPanel = new GiftBoxPanel(this::pickBox);
+    private List<ScoreRow> lastScores = List.of();
+    private List<BoxStatus> lastBoxes = List.of();
+    private final Set<String> seenSteals = new HashSet<>();
+    private BoxResult bonus; // hiệu ứng Nhân đôi / Không sợ muộn đang chờ câu kế tiếp
+
     private final Timer countdown = new Timer(TICK_MS, e -> tick());
     private Map<String, BufferedImage> images = new HashMap<>();
     private Question current;
@@ -124,7 +140,10 @@ public class GamePanel extends JPanel implements Screen {
                 "width: 8; trackArc: 999; thumbArc: 999; track: #00000000; thumb: #FFFFFF40; hoverThumbColor: #FFFFFF66");
         center.add(questionScroll, BorderLayout.CENTER);
         center.add(buildScoreSide(), BorderLayout.EAST);
-        add(center, BorderLayout.CENTER);
+        modes.setOpaque(false);
+        modes.add(center, "PLAY");
+        modes.add(giftPanel, "BOX");
+        add(modes, BorderLayout.CENTER);
     }
 
     /** Nền tối có vầng sáng tím phía trên giữa. */
@@ -388,6 +407,7 @@ public class GamePanel extends JPanel implements Screen {
     @Override
     public void onHide() {
         countdown.stop();
+        giftPanel.stop();
         SoundPlayer.stopMusic();
     }
 
@@ -419,6 +439,13 @@ public class GamePanel extends JPanel implements Screen {
         progressBar.setFraction(0f);
         timerRing.clear();
         countdown.stop();
+        giftPanel.stop();
+        timerRing.setVisible(true);
+        modeLayout.show(modes, "PLAY");
+        lastScores = List.of();
+        lastBoxes = List.of();
+        seenSteals.clear();
+        bonus = null;
         SoundPlayer.startMusic();
     }
 
@@ -426,6 +453,7 @@ public class GamePanel extends JPanel implements Screen {
     public void end() {
         active = false;
         countdown.stop();
+        giftPanel.stop();
         SoundPlayer.stopMusic();
     }
 
@@ -445,7 +473,10 @@ public class GamePanel extends JPanel implements Screen {
         total = q.total();
         questionNo.setText("CÂU " + (q.qIndex() + 1) + "/" + q.total());
         progressBar.setFraction(q.total() <= 0 ? 0f : (q.qIndex() + 1f) / q.total());
-        kindLabel.setText(kindText(q.type()) + " · " + Format.points(MAX_POINTS) + " ĐIỂM");
+        kindLabel.setText(kindText(q.type()) + " · " + bonusText(q.qIndex()));
+        giftPanel.stop();
+        timerRing.setVisible(true);
+        modeLayout.show(modes, "PLAY");
         questionText.setText(q.content());
         banner.setVisible(false);
         waiting.setText(" ");
@@ -486,6 +517,18 @@ public class GamePanel extends JPanel implements Screen {
             viewport.setViewPosition(new java.awt.Point(0, 0));
         }
         startCountdown(q.timeLimitMs());
+    }
+
+    /** "1.000 ĐIỂM", hoặc kèm hiệu ứng hộp quà nếu câu này được hưởng. */
+    private String bonusText(int qIndex) {
+        BoxResult b = bonus;
+        if (b == null || b.applyQIndex() == null || b.applyQIndex() != qIndex) {
+            if (b != null && b.applyQIndex() != null && b.applyQIndex() < qIndex) bonus = null;
+            return Format.points(MAX_POINTS) + " ĐIỂM";
+        }
+        bonus = null;
+        return b.effect() == BoxEffect.DOUBLE ? Format.points(2 * MAX_POINTS) + " ĐIỂM · NHÂN ĐÔI"
+                : Format.points(MAX_POINTS) + " ĐIỂM · KHÔNG SỢ MUỘN";
     }
 
     private static String kindText(QuestionType type) {
@@ -678,24 +721,86 @@ public class GamePanel extends JPanel implements Screen {
         if (!active) {
             return;
         }
-        String me = frame == null ? "" : frame.username();
+        String me = me();
+        lastScores = List.copyOf(rows);
         List<GameScoreList.Row> data = new ArrayList<>();
         for (ScoreRow r : ScoreWindow.around(rows, me)) {
             int done = r.finished() ? total : r.currentQuestion();
             data.add(new GameScoreList.Row(r.rank(), r.username(), r.score(), done + "/" + total,
                     r.username().equals(me)));
+            // Điểm của mình có thể đổi do hộp quà (bị cướp) nên lấy theo bảng điểm
+            if (r.username().equals(me)) scoreValue.setText(Format.points(r.score()));
         }
         scoreList.setRows(data);
+        giftPanel.update(lastBoxes, lastScores, me);
+    }
+
+    private String me() {
+        return frame == null || frame.username() == null ? "" : frame.username();
+    }
+
+    // ---------------------------------------------------------------- Hộp quà bí ẩn
+
+    /** Server mời chọn hộp: chuyển vùng giữa sang màn hộp quà. */
+    public void onBoxOffer(BoxOffer offer) {
+        if (!active) {
+            return;
+        }
+        countdown.stop();
+        timerRing.clear();
+        giftPanel.update(lastBoxes, lastScores, me());
+        giftPanel.offer(offer);
+        timerRing.setVisible(false); // màn hộp có đồng hồ riêng ở dưới
+        modeLayout.show(modes, "BOX");
+    }
+
+    public void onBoxResult(BoxResult result) {
+        if (!active) {
+            return;
+        }
+        scoreValue.setText(Format.points(result.totalScore()));
+        if (result.effect() == BoxEffect.DOUBLE || result.effect() == BoxEffect.NO_LATE) bonus = result;
+        giftPanel.reveal(result);
+    }
+
+    public void onBoxStatus(List<BoxStatus> rows) {
+        if (!active) {
+            return;
+        }
+        lastBoxes = List.copyOf(rows);
+        String me = me();
+        for (BoxStatus s : rows) {
+            // Báo cho người bị cướp điểm
+            if (me.equals(s.target()) && s.targetDelta() < 0 && seenSteals.add(s.username() + "#" + s.round())) {
+                addNotice(s.username() + " vừa cướp " + Format.points(-s.targetDelta()) + " điểm của bạn!");
+            }
+        }
+        giftPanel.update(lastBoxes, lastScores, me);
+    }
+
+    private void pickBox(int round, int box) {
+        if (frame == null) {
+            return;
+        }
+        Async.ui(frame.client().pickBox(round, box), v -> { }, error -> {
+            // Ví dụ hết giờ: Server đã tự chọn, kết quả vẫn đến qua BOX_RESULT
+            giftPanel.pickFailed();
+            addNotice(error);
+        });
+    }
+
+    private void addNotice(String text) {
+        noticeLines.add(text);
+        int from = Math.max(0, noticeLines.size() - 3);
+        notices.setText("<html>" + String.join("<br>", noticeLines.subList(from, noticeLines.size())
+                .stream().map(GamePanel::escape).toList()) + "</html>");
     }
 
     public void onPlayerLeft(String username) {
         if (!active) {
             return;
         }
-        noticeLines.add(username + " đã rời trận");
-        int from = Math.max(0, noticeLines.size() - 3);
-        notices.setText("<html>" + String.join("<br>", noticeLines.subList(from, noticeLines.size())
-                .stream().map(GamePanel::escape).toList()) + "</html>");
+        addNotice(username + " đã rời trận");
     }
 
     // ---------------------------------------------------------------- Trả lời

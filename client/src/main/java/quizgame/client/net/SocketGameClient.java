@@ -7,6 +7,9 @@ import com.google.gson.JsonParseException;
 import com.google.gson.reflect.TypeToken;
 import quizgame.common.model.Answer;
 import quizgame.common.model.AnswerResult;
+import quizgame.common.model.BoxOffer;
+import quizgame.common.model.BoxResult;
+import quizgame.common.model.BoxStatus;
 import quizgame.common.model.ChangeType;
 import quizgame.common.model.GameStart;
 import quizgame.common.model.Invite;
@@ -217,6 +220,11 @@ public class SocketGameClient implements GameClient {
     @Override
     public CompletableFuture<Void> quitGame() {
         return request("QUIT_GAME", null, Void.class);
+    }
+
+    @Override
+    public CompletableFuture<Void> pickBox(int round, int box) {
+        return request("BOX_PICK", map("round", round, "box", box), Void.class);
     }
 
     // ---------------------------------------------------------------- Bộ câu hỏi
@@ -473,6 +481,18 @@ public class SocketGameClient implements GameClient {
                 case "GAME_END" -> {
                     MatchResult r = gson.fromJson(data, MatchResult.class);
                     fire(l -> l.onGameEnd(r));
+                }
+                case "BOX_OFFER" -> {
+                    BoxOffer o = gson.fromJson(data, BoxOffer.class);
+                    fire(l -> l.onBoxOffer(o));
+                }
+                case "BOX_RESULT" -> {
+                    BoxResult r = gson.fromJson(data, BoxResult.class);
+                    fire(l -> l.onBoxResult(r));
+                }
+                case "BOX_STATUS" -> {
+                    List<BoxStatus> rows = gson.fromJson(data, new TypeToken<List<BoxStatus>>() { }.getType());
+                    fire(l -> l.onBoxStatus(rows));
                 }
                 default -> {
                     // type lạ (ví dụ PONG không có reqId): bỏ qua

@@ -53,6 +53,13 @@ GameStart      : { numQuestions, imagesBase64: { "<imageId>": "<base64>" } }
 Question       : { qIndex, total, type, content, options[], imageId|null, timeLimitMs }   (KHÔNG có đáp án đúng)
 Answer         : { choices[], text }       SINGLE/MULTI dùng choices (chỉ số 0-3), TYPE dùng text
 AnswerResult   : { qIndex, correct, correctIndexes[], acceptedAnswers[], points, totalScore }
+BoxEffect      : STEAL | LOSE | DOUBLE | NO_LATE
+BoxState       : CHOOSING | CHOSEN
+BoxOffer       : { round, afterQIndex, timeoutMs }            round = 1 hoặc 2
+BoxResult      : { round, chosen, auto, boxes[BoxEffect x4], effect, delta, target|null, targetDelta,
+                   applyQIndex|null, totalScore, nextInMs }
+BoxStatus      : { username, round, state, box|null, effect|null, delta, target|null, targetDelta, applyQIndex|null }
+                 CHOOSING: box/effect/target/applyQIndex = null, delta = targetDelta = 0
 ScoreRow       : { rank, username, score, currentQuestion, finished }
 PlayerStatus   : FINISHED | QUIT | DISCONNECTED
 MatchRow       : { rank, username, score, correctCount, finishTimeMs, status }
@@ -104,8 +111,10 @@ Cột "Lỗi" liệt kê các `error.code` có thể gặp. Mọi yêu cầu đ�
 | --- | --- | --- | --- |
 | ANSWER | { qIndex, answer: Answer } | null | WRONG_QUESTION, ALREADY_ANSWERED, TIME_UP, NOT_PLAYING |
 | QUIT_GAME | null | null | NOT_PLAYING |
+| BOX_PICK | { round, box } (box 0-3) | null | NOT_PLAYING, NO_BOX |
 - Kết quả chấm không nằm trong phản hồi mà được đẩy bằng `ANSWER_RESULT` ngay sau đó.
 - Server chỉ nhận đáp án ĐẦU TIÊN cho mỗi câu. Đáp án đến muộn quá `timeLimitMs` + 500 ms thì `TIME_UP`.
+- Hộp quà bí ẩn (mục 6.1): `BOX_PICK` chỉ hợp lệ khi người đó đang có `BOX_OFFER` đúng `round` chưa chọn; ngược lại `NO_BOX`.
 
 ### 4.5 Bộ câu hỏi
 | type | data gửi | data phản hồi | Lỗi |
@@ -142,6 +151,9 @@ Cột "Lỗi" liệt kê các `error.code` có thể gặp. Mọi yêu cầu đ�
 | SCOREBOARD | ScoreRow[] (đủ mọi người trong trận, đã xếp hạng) | Mỗi khi có người xong 1 câu |
 | PLAYER_LEFT | { username } | Có người thoát hoặc rớt mạng giữa trận |
 | GAME_END | MatchResult | Mọi người còn lại đã xong; Server đưa phòng về WAITING, tắt sẵn sàng của mọi người |
+| BOX_OFFER | BoxOffer | Người đó vừa xong câu mốc, mời chọn 1 trong 4 hộp |
+| BOX_RESULT | BoxResult | Người đó đã chọn (hoặc hết giờ, `auto` = true) |
+| BOX_STATUS | BoxStatus[] | Có người bắt đầu chọn hoặc đã chọn hộp; gửi riêng từng người (ẩn vị trí hộp, xem 6.1) |
 - Client tự lấy cửa sổ 5 dòng quanh mình từ `SCOREBOARD`.
 
 ## 6. Luồng một trận
@@ -152,6 +164,23 @@ Cột "Lỗi" liệt kê các `error.code` có thể gặp. Mọi yêu cầu đ�
 5. Mọi người xong hoặc rời: Server ghi CSDL, đẩy `GAME_END` rồi `ROOM_STATE` (phase WAITING) và `USER_UPDATE` về số trận thắng.
 - Điểm một câu đúng: `round(500 + 500 * (1 - t / T))`, t = thời gian Server đo từ lúc gửi QUESTION đến lúc nhận ANSWER (tối đa T), T = timeLimitMs / 1000.
   Sai hoặc không trả lời: 0.
+
+### 6.1 Hộp quà bí ẩn
+- Mỗi trận tối đa 2 lượt hộp; trận dưới 4 câu không có hộp. Với n câu: p1 = round(n/3), p2 = round(2n/3) (đếm từ 1). Nếu p2 - p1 >= 2
+  và p2 < n thì hộp xuất hiện sau câu p1 và p2; ngược lại chỉ 1 lượt sau câu round(n/2). Không bao giờ sau câu cuối.
+  Ví dụ: 4 câu -> sau câu 1 và 3; 5 câu -> sau câu 3; 10 câu -> sau câu 3 và 7; 12 câu -> sau câu 4 và 8.
+- Mỗi người tự gặp hộp theo nhịp riêng: khoảng 1500 ms sau `ANSWER_RESULT` của câu mốc, Server gửi `BOX_OFFER` thay cho `QUESTION` kế tiếp.
+  Có `timeoutMs` = 6000 ms để `BOX_PICK`; quá 6000 + 500 ms Server tự chọn ngẫu nhiên (`auto` = true).
+- Mỗi lượt Server xáo 4 hiệu ứng vào 4 hộp, mọi người trong trận dùng chung cách xếp của lượt đó. Server quyết định, Client chỉ hiển thị.
+  - `STEAL` (Cướp điểm): lấy round(15%) điểm của người còn chơi đang dẫn đầu (không tính mình); người đó bị trừ đúng số này.
+  - `LOSE` (Mất điểm): trừ round(20%) điểm đang có của mình.
+  - `DOUBLE` (Nhân đôi): câu kế tiếp (`applyQIndex`) đúng thì điểm ×2.
+  - `NO_LATE` (Không sợ muộn): câu kế tiếp đúng thì điểm gốc = 1000 không phụ thuộc thời gian (vẫn ×2 nếu có `DOUBLE`).
+  - `delta` / `targetDelta` là điểm thay đổi ngay của mình / của `target`. Điểm không bao giờ âm.
+- Sau `BOX_RESULT`, Server gửi `SCOREBOARD` (nếu điểm đổi) và khoảng `nextInMs` = 3000 ms sau thì gửi `QUESTION` kế tiếp.
+- `BOX_STATUS` liệt kê mọi lượt hộp đã bắt đầu của mọi người (sắp theo lượt rồi tên). `effect`, `delta`, `target`… luôn công khai
+  sau khi người đó chọn; riêng `box` (vị trí hộp) của người khác bị ẩn (null) ở lượt mà người nhận chưa chọn xong, để không lộ cách xếp hộp.
+- Điểm từ hộp chỉ cộng/trừ vào tổng điểm của trận (`ScoreRow.score`, `MatchRow.score`), không ghi vào điểm từng câu trong CSDL.
 - SINGLE đúng khi `choices` đúng 1 phần tử bằng đáp án. MULTI đúng khi tập `choices` trùng khít `correctIndexes`. TYPE đúng khi `text` sau khi
   cắt khoảng trắng đầu cuối, gộp nhiều khoảng trắng thành một và bỏ phân biệt hoa thường bằng một trong `acceptedAnswers` (làm cùng cách với đáp án lưu).
 - Thắng: điểm cao nhất; nhiều người cùng điểm cao nhất = hòa, `winner = null`, không ai được cộng trận thắng.

@@ -56,6 +56,9 @@ public interface GameClient {
 
     CompletableFuture<Void> quitGame();
 
+    /** Chọn hộp quà box (0-3) ở lượt round. */
+    CompletableFuture<Void> pickBox(int round, int box);
+
     // Bộ câu hỏi
     CompletableFuture<List<QuestionSetSummary>> listSets();
 

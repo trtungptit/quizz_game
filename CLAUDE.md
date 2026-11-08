@@ -49,6 +49,9 @@ Lớp mới phải đặt đúng thư mục trên.
    `SetEditorPanel`, logo NavBar, `ImagePicker`, nhấp đúp mở dòng ở `SetPickerDialog`/`HistoryPanel`).
    Đã duyệt: màn GAME đổi sang nền tối theo ảnh mẫu mới của người dùng (thay bố cục ảnh 06–08): đồng hồ tròn, 4 ô đáp án lớn,
    khung kết quả "ĐÚNG!/SAI! … +điểm", bảng xếp hạng nền tối (`TimerRing`, `GameScoreList`). Chỉ đổi Client, không đổi protocol.
+   Đã duyệt (nhánh `feat/hop-qua`): hộp quà bí ẩn theo ảnh mẫu — mở rộng protocol (`BOX_PICK`, `BOX_OFFER`, `BOX_RESULT`, `BOX_STATUS`),
+   `common/model` (Box*), server (`BoxRules`, `GameManager`), client (`GiftBoxPanel`, `GamePanel`, net, `MainFrame` chuyển sự kiện).
+   Mỗi người tự gặp hộp; 4 hiệu ứng STEAL/LOSE/DOUBLE/NO_LATE; Server quyết định; không đổi schema; bỏ quyền trợ giúp.
 2. KHÔNG tạo dữ liệu giả, lớp Fake, hay mock trong code chạy thật. Mọi dữ liệu đến từ Server qua `SocketGameClient`. Danh sách rỗng thì hiện
    trạng thái rỗng (chữ hướng dẫn), chưa tải xong thì hiện 'Đang tải...', lỗi thì hiện lỗi và nút Thử lại.
    Chỉ được dùng server giả bên trong thư mục test (`src/test`) để kiểm thử.
