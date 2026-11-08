@@ -27,7 +27,7 @@ public class AnswerButton extends JButton {
         this.text = (char) ('A' + index) + ". " + text;
         setText(this.text);
         setForeground(Color.WHITE);
-        setFont(AppTheme.FONT_BOLD.deriveFont(18f));
+        setFont(AppTheme.FONT_BOLD.deriveFont(22f));
         setContentAreaFilled(false);
         setBorderPainted(false);
         setFocusPainted(false);
@@ -48,10 +48,16 @@ public class AnswerButton extends JButton {
         return text;
     }
 
+    // Bố cục ô: ô vuông ký hiệu bên trái, chữ, chừa chỗ dấu kết quả bên phải
+    private static final int ICON_X = 20;
+    private static final int ICON_SIZE = 46;
+    private static final int TEXT_X = ICON_X + ICON_SIZE + 18;
+    private static final int RIGHT_PAD = 70;
+
     /** Chiều cao tối thiểu để chữ xuống dòng không chạm biểu tượng hoặc dấu kết quả. */
     public int preferredHeightForWidth(int width) {
-        return Math.max(84, TextLines.wrap(text, getFontMetrics(getFont()), width - 134).size()
-                * getFontMetrics(getFont()).getHeight() + 32);
+        return Math.max(84, TextLines.wrap(text, getFontMetrics(getFont()), width - TEXT_X - RIGHT_PAD).size()
+                * getFontMetrics(getFont()).getHeight() + 36);
     }
 
     @Override
@@ -66,35 +72,49 @@ public class AnswerButton extends JButton {
         g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         int w = getWidth();
         int h = getHeight();
-        boolean highlighted = state == State.NORMAL && (isSelected() || isEnabled()
-                && (hasFocus() || getModel().isRollover() || getModel().isPressed()));
+        boolean dim = state == State.DIM;
+        // Viền trắng: ô đang chọn/rê chuột, ô đúng, ô chọn sai
+        boolean ring = state == State.CORRECT || state == State.WRONG || state == State.NORMAL
+                && (isSelected() || isEnabled() && (hasFocus() || getModel().isRollover() || getModel().isPressed()));
         Color fill = switch (state) {
-            case DIM -> mixWithWhite(COLORS[index], .62f);
+            case DIM -> mix(COLORS[index], AppTheme.GAME_BG_TOP, .58f);
             case WRONG -> AppTheme.WRONG;
             default -> COLORS[index];
         };
+        int arc = 24;
+        int inset = 0;
+        if (ring) {
+            g2.setColor(Color.WHITE);
+            g2.fillRoundRect(0, 0, w, h, arc + 8, arc + 8);
+            g2.setColor(AppTheme.GAME_BG_TOP);
+            g2.fillRoundRect(5, 5, w - 10, h - 10, arc + 2, arc + 2);
+            inset = 8;
+        } else {
+            // Bóng mờ dưới đáy cho cảm giác nổi
+            g2.setColor(mix(fill, Color.BLACK, .35f));
+            g2.fillRoundRect(0, 4, w, h - 4, arc, arc);
+        }
         g2.setColor(fill);
-        g2.fillRoundRect(0, 0, w, h, 20, 20);
-        Color outline = switch (state) {
-            case CORRECT -> AppTheme.CORRECT;
-            case WRONG -> new Color(0xB91C1C);
-            default -> highlighted ? Color.WHITE : AppTheme.BORDER;
-        };
-        g2.setColor(outline);
-        g2.setStroke(new BasicStroke(state == State.NORMAL && !highlighted || state == State.DIM ? 1f : 2f));
-        g2.drawRoundRect(2, 2, w - 5, h - 5, 18, 18);
-        g2.setFont(getFont());
+        g2.fillRoundRect(inset, inset, w - 2 * inset, h - 2 * inset - (ring ? 0 : 4), arc, arc);
+
         int cy = h / 2;
-        java.util.List<String> lines = TextLines.wrap(text, g2.getFontMetrics(), w - 134);
+        // Ô vuông mờ chứa ký hiệu ▲ ◆ ● ■
+        g2.setColor(new Color(255, 255, 255, dim ? 22 : 60));
+        g2.fillRoundRect(ICON_X + inset / 2, cy - ICON_SIZE / 2, ICON_SIZE, ICON_SIZE, 14, 14);
+        g2.setColor(new Color(255, 255, 255, dim ? 110 : 255));
+        drawSymbol(g2, ICON_X + inset / 2 + ICON_SIZE / 2, cy);
+
+        g2.setFont(getFont());
+        java.util.List<String> lines = TextLines.wrap(text, g2.getFontMetrics(), w - TEXT_X - RIGHT_PAD);
         int lineHeight = g2.getFontMetrics().getHeight();
         int ty = (h - lineHeight * lines.size()) / 2 + g2.getFontMetrics().getAscent();
-        g2.setColor(Color.WHITE);
-        drawSymbol(g2, 36, cy);
-        g2.setColor(getForeground());
+        Color fg = getForeground();
+        g2.setColor(dim ? new Color(fg.getRed(), fg.getGreen(), fg.getBlue(), 120) : fg);
         for (String line : lines) {
-            g2.drawString(line, 64, ty);
+            g2.drawString(line, TEXT_X + inset / 2, ty);
             ty += lineHeight;
         }
+        g2.setColor(Color.WHITE);
         // Dấu ✓ / ✗ vẽ bằng nét thay vì ký tự để không phụ thuộc font
         g2.setStroke(new BasicStroke(4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         if (state == State.CORRECT) {
@@ -106,15 +126,15 @@ public class AnswerButton extends JButton {
         g2.dispose();
     }
 
-    private static Color mixWithWhite(Color color, float ratio) {
-        return new Color(Math.round(color.getRed() * (1 - ratio) + 255 * ratio),
-                Math.round(color.getGreen() * (1 - ratio) + 255 * ratio),
-                Math.round(color.getBlue() * (1 - ratio) + 255 * ratio));
+    private static Color mix(Color color, Color other, float ratio) {
+        return new Color(Math.round(color.getRed() * (1 - ratio) + other.getRed() * ratio),
+                Math.round(color.getGreen() * (1 - ratio) + other.getGreen() * ratio),
+                Math.round(color.getBlue() * (1 - ratio) + other.getBlue() * ratio));
     }
 
     /** Vẽ ký hiệu ▲ ◆ ● ■ bằng hình học. */
     private void drawSymbol(Graphics2D g2, int cx, int cy) {
-        int r = 11;
+        int r = 12;
         switch (index) {
             case 0 -> g2.fillPolygon(new int[]{cx, cx - r, cx + r}, new int[]{cy - r, cy + r - 2, cy + r - 2}, 3);
             case 1 -> g2.fillPolygon(new int[]{cx, cx - r, cx, cx + r}, new int[]{cy - r, cy, cy + r, cy}, 4);

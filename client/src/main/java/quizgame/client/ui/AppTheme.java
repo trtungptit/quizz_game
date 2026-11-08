@@ -47,6 +47,21 @@ public final class AppTheme {
     public static final Color ANSWER_C = new Color(0xF59E0B);
     public static final Color ANSWER_D = new Color(0x22C55E);
 
+    // Màn chơi nền tối
+    public static final Color GAME_BG_TOP = new Color(0x221C4A);
+    public static final Color GAME_BG_BOTTOM = new Color(0x1C1A33);
+    public static final Color GAME_GLOW = new Color(0x3F2D8F);
+    public static final Color GAME_BAR = new Color(0x1A1733);
+    public static final Color GAME_PANEL = new Color(255, 255, 255, 16);
+    public static final Color GAME_LINE = new Color(255, 255, 255, 28);
+    public static final Color GAME_MUTED = new Color(0xA9A3D9);
+    public static final Color GAME_KIND = new Color(0x6D5BD0);
+    public static final Color GAME_QUESTION_BG = new Color(0xF7F6FB);
+    public static final Color GAME_CORRECT_BG = new Color(0x1F3B45);
+    public static final Color GAME_CORRECT_TEXT = new Color(0x6EE7A8);
+    public static final Color GAME_WRONG_BG = new Color(0x3E1E33);
+    public static final Color GAME_WRONG_TEXT = new Color(0xFCA5A5);
+
     // Font
     public static final String FONT_FAMILY = "Segoe UI";
     public static final Font FONT_BASE = new Font(FONT_FAMILY, Font.PLAIN, 14);
