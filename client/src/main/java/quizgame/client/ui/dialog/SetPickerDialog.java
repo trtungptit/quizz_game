@@ -1,5 +1,7 @@
 package quizgame.client.ui.dialog;
 
+import quizgame.client.util.SoundPlayer;
+
 import com.formdev.flatlaf.FlatClientProperties;
 import quizgame.client.net.GameClient;
 import quizgame.client.ui.AppTheme;
@@ -84,6 +86,7 @@ public class SetPickerDialog extends JDialog {
             @Override
             public void mouseClicked(MouseEvent e) {
                 if (e.getClickCount() == 2 && table.getSelectedRow() >= 0) {
+                    SoundPlayer.click();
                     confirm();
                 }
             }

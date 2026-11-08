@@ -19,6 +19,7 @@ public final class GameManager implements AutoCloseable {
     private static final Gson JSON=new GsonBuilder().serializeNulls().create();
     private final Database db;private final RoomDao roomDao;private final RoomManager rooms;private final OnlineRegistry online;
     private final MatchDao dao=new MatchDao();
+    private final Random random=new java.security.SecureRandom(); // xếp hộp quà, chọn hộp khi hết giờ
     private final Map<Long,GameSession> games=new HashMap<>();
     private final ScheduledExecutorService timer=Executors.newSingleThreadScheduledExecutor(r->{Thread t=new Thread(r,"quiz-game-timers");t.setDaemon(true);return t;});
     private boolean closed;
@@ -50,7 +51,9 @@ public final class GameManager implements AutoCloseable {
                     long id=online.userId(peer);players.add(new GameSession.Player(id,member.username(),peer));participants.add(new MatchDao.Participant(id,member.username()));
                 }
                 var started=dao.start(c,room.id(),room.setId(),questions,participants);
-                var game=new GameSession(started.id(),started.roundId(),room.id(),questions,started.roundQuestions(),players,room.timeOverrideSeconds());
+                var boxAfter=BoxRules.positions(questions.size());
+                List<List<BoxEffect>> layouts=new ArrayList<>();for(int i=0;i<boxAfter.size();i++)layouts.add(BoxRules.shuffle(random));
+                var game=new GameSession(started.id(),started.roundId(),room.id(),questions,started.roundQuestions(),players,room.timeOverrideSeconds(),boxAfter,layouts);
                 return new Prepared(game,startFrame);
             });
             var g=prepared.game();games.put(g.roomId,g);
@@ -77,6 +80,8 @@ public final class GameManager implements AutoCloseable {
             Question wire=wireQuestion(question,p.index,g.questions.size(),g.override);
             long slot=db.transaction(c->dao.slot(c,g.id,g.roundId,g.roundQuestions.get(p.index),question.id(),p.id));
             var state=new GameSession.Slot(slot,p.index,wire.timeLimitMs());p.slot=state;
+            // Hiệu lực hộp quà dành cho câu này (chỉ dùng một lần)
+            state.noLate=p.nextNoLate;state.doubled=p.nextDouble;p.nextNoLate=false;p.nextDouble=false;
             p.session.send(event("QUESTION",wire),()->{
                 state.written();
                 schedule(()->{
@@ -116,7 +121,7 @@ public final class GameManager implements AutoCloseable {
         if(slot.answered||p.left()||!active(g))return;
         var question=g.questions.get(slot.index);boolean correct=answer!=null&&Scoring.correct(question.draft(),answer);
         long elapsed=TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-slot.sentNanos.get());
-        int points=Scoring.points(correct,elapsed,slot.limitMs);
+        int points=BoxRules.points(Scoring.points(correct,elapsed,slot.limitMs),correct,slot.noLate,slot.doubled);
         db.transaction(c->{dao.answer(c,slot.id,question,answer,correct,points);return null;});
         slot.answered=true;if(slot.timeout!=null)slot.timeout.cancel(false);p.score+=points;if(correct)p.correct++;
         if(slot.index==g.questions.size()-1){p.done=true;p.finishMs=TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-g.startedNanos);}
@@ -129,11 +134,79 @@ public final class GameManager implements AutoCloseable {
                 long remaining=1500-TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-at);
                 p.next=schedule(()->{
                     if(!active(g)||p.done||p.left()||p.slot!=slot)return;
-                    p.index++;sendQuestion(g,p);
+                    // Câu mốc thì mời mở hộp quà trước, ngược lại sang câu kế tiếp
+                    int box=g.boxRoundAfter(slot.index);
+                    if(box>0&&!p.boxes.containsKey(box))offerBox(g,p,box);else{p.index++;sendQuestion(g,p);}
                 },Math.max(0,remaining));
             },0);
         });
         scoreboard(g);maybeFinish(g);
+    }
+
+    // ---------------------------------------------------------------- Hộp quà bí ẩn
+
+    private void offerBox(GameSession g,GameSession.Player p,int round){
+        if(!active(g)||p.done||p.left())return;
+        p.boxRound=round;
+        p.boxes.put(round,new BoxStatus(p.username,round,BoxState.CHOOSING,null,null,0,null,0,null));
+        p.session.send(event("BOX_OFFER",new BoxOffer(round,g.boxAfter.get(round-1),BoxRules.PICK_TIMEOUT_MS)));
+        // Hết giờ mà chưa chọn thì Server chọn ngẫu nhiên
+        p.boxTimer=schedule(()->{if(active(g)&&!p.left()&&p.boxRound==round)resolveBox(g,p,random.nextInt(4),true);},
+                BoxRules.PICK_TIMEOUT_MS+BoxRules.PICK_GRACE_MS);
+        boxStatus(g);
+    }
+
+    public void pickBox(ClientSession session,int round,int box,long reqId){synchronized(online){
+        GameSession g=find(session);var p=player(g,session);
+        if(g.result!=null||p.done||p.left())throw error("NOT_PLAYING","Bạn không còn chơi trận này");
+        if(p.boxRound==0||p.boxRound!=round)throw error("NO_BOX","Không có hộp quà đang chờ chọn");
+        if(box<0||box>3)throw new IllegalArgumentException();
+        session.send(ProtocolMessages.response("BOX_PICK",reqId,null,null));
+        resolveBox(g,p,box,false);
+    }}
+
+    /** Mở hộp: áp hiệu ứng (Server quyết định), báo kết quả, rồi sau REVEAL_MS gửi câu kế tiếp. */
+    private void resolveBox(GameSession g,GameSession.Player p,int box,boolean auto){
+        int round=p.boxRound;if(round==0)return;
+        p.boxRound=0;if(p.boxTimer!=null)p.boxTimer.cancel(false);
+        var layout=g.boxLayouts.get(round-1);var effect=layout.get(box);
+        int delta=0,targetDelta=0;String target=null;Integer apply=null;
+        switch(effect){
+            case STEAL->{
+                // Người còn chơi đang dẫn đầu, không tính mình
+                var leader=g.players.stream().filter(x->x!=p&&!x.left()).sorted(order()).findFirst();
+                if(leader.isPresent()){
+                    var t=leader.get();int amount=BoxRules.stealAmount(t.score);
+                    t.score-=amount;p.score+=amount;delta=amount;targetDelta=-amount;target=t.username;
+                }
+            }
+            case LOSE->{int amount=BoxRules.loseAmount(p.score);p.score-=amount;delta=-amount;}
+            case DOUBLE->{p.nextDouble=true;apply=p.index+1;}
+            case NO_LATE->{p.nextNoLate=true;apply=p.index+1;}
+        }
+        p.boxes.put(round,new BoxStatus(p.username,round,BoxState.CHOSEN,box,effect,delta,target,targetDelta,apply));
+        p.session.send(event("BOX_RESULT",new BoxResult(round,box,auto,layout,effect,delta,target,targetDelta,apply,p.score,BoxRules.REVEAL_MS)));
+        boxStatus(g);
+        if(delta!=0||targetDelta!=0)scoreboard(g);
+        p.next=schedule(()->{
+            if(!active(g)||p.done||p.left()||p.boxRound!=0)return;
+            p.index++;sendQuestion(g,p);
+        },BoxRules.REVEAL_MS);
+    }
+
+    /** Gửi riêng từng người danh sách lượt hộp; ẩn vị trí hộp của người khác ở lượt người nhận chưa chọn. */
+    private void boxStatus(GameSession g){
+        for(var q:g.players){
+            if(q.left()||q.detached||!q.session.isOpen()||online.sessionByUsername(q.username)!=q.session)continue;
+            List<BoxStatus> rows=new ArrayList<>();
+            for(var x:g.players)for(var s:x.boxes.values()){
+                var mine=q.boxes.get(s.round());
+                boolean seen=x==q||mine!=null&&mine.state()==BoxState.CHOSEN;
+                rows.add(seen?s:new BoxStatus(s.username(),s.round(),s.state(),null,s.effect(),s.delta(),s.target(),s.targetDelta(),s.applyQIndex()));
+            }
+            rows.sort(Comparator.comparingInt(BoxStatus::round).thenComparing(BoxStatus::username));
+            q.session.send(event("BOX_STATUS",List.copyOf(rows)));
+        }
     }
     private void timeout(GameSession g,GameSession.Player p,GameSession.Slot slot){
         if(!active(g)||p.left()||p.slot!=slot||slot.answered)return;

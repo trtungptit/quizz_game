@@ -1,6 +1,7 @@
 package quizgame.client.ui;
 
 import quizgame.client.ui.component.GradientPanel;
+import quizgame.client.util.SoundPlayer;
 
 import javax.swing.BorderFactory;
 import javax.swing.JLabel;
@@ -38,6 +39,7 @@ public class NavBar extends GradientPanel {
         logo.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
+                SoundPlayer.click();
                 onNavigate.accept(MainFrame.HOME);
             }
         });
@@ -82,6 +84,7 @@ public class NavBar extends GradientPanel {
             addMouseListener(new MouseAdapter() {
                 @Override
                 public void mouseClicked(MouseEvent e) {
+                    SoundPlayer.click();
                     action.run();
                 }
             });

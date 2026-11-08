@@ -15,6 +15,9 @@ import quizgame.client.ui.screen.RoomPanel;
 import quizgame.client.ui.screen.SetEditorPanel;
 import quizgame.client.util.Async;
 import quizgame.common.model.AnswerResult;
+import quizgame.common.model.BoxOffer;
+import quizgame.common.model.BoxResult;
+import quizgame.common.model.BoxStatus;
 import quizgame.common.model.ChangeType;
 import quizgame.common.model.GameStart;
 import quizgame.common.model.Invite;
@@ -446,6 +449,21 @@ public class MainFrame extends JFrame {
         @Override
         public void onPlayerLeft(String username) {
             SwingUtilities.invokeLater(() -> gamePanel.onPlayerLeft(username));
+        }
+
+        @Override
+        public void onBoxOffer(BoxOffer offer) {
+            SwingUtilities.invokeLater(() -> gamePanel.onBoxOffer(offer));
+        }
+
+        @Override
+        public void onBoxResult(BoxResult result) {
+            SwingUtilities.invokeLater(() -> gamePanel.onBoxResult(result));
+        }
+
+        @Override
+        public void onBoxStatus(List<BoxStatus> rows) {
+            SwingUtilities.invokeLater(() -> gamePanel.onBoxStatus(rows));
         }
 
         @Override

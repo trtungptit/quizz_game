@@ -1,5 +1,7 @@
 package quizgame.client.ui.screen;
 
+import quizgame.client.util.SoundPlayer;
+
 import quizgame.client.ui.AppTheme;
 import quizgame.client.ui.Dialogs;
 import quizgame.client.ui.Format;
@@ -163,6 +165,8 @@ public class RoomPanel extends JPanel implements Screen {
         group.add(fixedTime);
         perQuestion.setOpaque(false);
         fixedTime.setOpaque(false);
+        perQuestion.addActionListener(e -> SoundPlayer.click());
+        fixedTime.addActionListener(e -> SoundPlayer.click());
         numSpinner.setPreferredSize(new Dimension(70, 32));
         secSpinner.setPreferredSize(new Dimension(70, 32));
         config.add(new JLabel("Số câu"));

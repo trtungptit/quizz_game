@@ -40,6 +40,19 @@ public final class Format {
         }
     }
 
+    /** Điểm có dấu chấm ngăn hàng nghìn kiểu Việt Nam: 2400 -> '2.400', -296 -> '-296'. */
+    public static String points(long value) {
+        String digits = Long.toString(Math.abs(value));
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < digits.length(); i++) {
+            if (i > 0 && (digits.length() - i) % 3 == 0) {
+                sb.append('.');
+            }
+            sb.append(digits.charAt(i));
+        }
+        return (value < 0 ? "-" : "") + sb;
+    }
+
     /** Các loại câu hỏi, cách nhau ' / ', thêm 'Hình ảnh' nếu bộ có ảnh. */
     public static String types(List<QuestionType> types, boolean hasImages) {
         List<String> labels = new ArrayList<>();

@@ -18,22 +18,33 @@ final class GameSession {
     final Integer override;
     MatchResult result;
     boolean ended;
-    GameSession(long id,long roundId,long roomId,List<MatchDao.GameQuestion> questions,List<Long> rq,List<Player> players,Integer override){
+    // Hộp quà: chỉ số câu (từ 0) mà sau đó có hộp, và cách xếp 4 hiệu ứng của từng lượt (dùng chung cả trận)
+    final List<Integer> boxAfter;
+    final List<List<BoxEffect>> boxLayouts;
+    GameSession(long id,long roundId,long roomId,List<MatchDao.GameQuestion> questions,List<Long> rq,List<Player> players,Integer override,List<Integer> boxAfter,List<List<BoxEffect>> boxLayouts){
         this.id=id;this.roundId=roundId;this.roomId=roomId;this.questions=List.copyOf(questions);roundQuestions=List.copyOf(rq);this.players=List.copyOf(players);this.override=override;
+        this.boxAfter=List.copyOf(boxAfter);this.boxLayouts=List.copyOf(boxLayouts);
     }
+    /** Lượt hộp (từ 1) xuất hiện sau câu index, hoặc 0 nếu không có. */
+    int boxRoundAfter(int index){int i=boxAfter.indexOf(index);return i<0?0:i+1;}
     static final class Player {
         final long id;final String username;final ClientSession session;
         int index,score,correct;boolean done,detached;long finishMs;PlayerStatus status=PlayerStatus.FINISHED;
         Slot slot;ScheduledFuture<?> next;
+        // Hộp quà: lượt đang chờ chọn (0 = không), hạn chọn, kết quả từng lượt và hiệu lực cho câu kế tiếp
+        int boxRound;ScheduledFuture<?> boxTimer;
+        final java.util.Map<Integer,BoxStatus> boxes=new java.util.TreeMap<>();
+        boolean nextNoLate,nextDouble;
         Player(long id,String username,ClientSession session){this.id=id;this.username=username;this.session=session;}
         boolean left(){return status!=PlayerStatus.FINISHED;}
-        void cancelTimers(){if(slot!=null&&slot.timeout!=null)slot.timeout.cancel(false);if(next!=null)next.cancel(false);}
+        void cancelTimers(){if(slot!=null&&slot.timeout!=null)slot.timeout.cancel(false);if(next!=null)next.cancel(false);if(boxTimer!=null)boxTimer.cancel(false);}
     }
     static final class Slot {
         final long id,limitMs;final int index;
         final AtomicLong sentNanos=new AtomicLong();
         final AtomicReference<Instant> sentWall=new AtomicReference<>();
         boolean persisted,answered;ScheduledFuture<?> timeout;
+        boolean noLate,doubled; // hiệu lực hộp quà áp dụng cho câu này
         Slot(long id,int index,long limitMs){this.id=id;this.index=index;this.limitMs=limitMs;}
         void written(){sentNanos.compareAndSet(0,System.nanoTime());sentWall.compareAndSet(null,Instant.now());}
     }

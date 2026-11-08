@@ -202,6 +202,12 @@ public final class ClientHandler implements Runnable {
                 String text=answer.get("text").isJsonNull()?null:requireString(answer,"text");
                 games.answer(session,index,new Answer(java.util.List.copyOf(choices),text),reqId);return;
             }
+            if(games!=null&&"BOX_PICK".equals(type)){
+                var fields=requireFields(data,"round","box");
+                int round=requireInt(fields.get("round"));int box=requireInt(fields.get("box"));
+                if(round<1||box<0||box>3)throw new IllegalArgumentException(); // sai định dạng -> BAD_REQUEST
+                games.pickBox(session,round,box,reqId);return;
+            }
             if (rooms != null && "SET_READY".equals(type)) {
                 var fields=requireFields(data,"ready");var value=fields.get("ready");
                 if(!value.isJsonPrimitive()||!value.getAsJsonPrimitive().isBoolean())throw new IllegalArgumentException();

@@ -43,6 +43,15 @@ Lớp mới phải đặt đúng thư mục trên.
 ## Quy tắc làm việc
 1. Không tự ý sửa `client`, `common`, protocol hoặc schema; backend `server` theo kế hoạch đã được duyệt. Giai đoạn gameplay mới chưa được phép tự commit/push.
    Ngoại lệ đã được duyệt: sửa `client/.../ui/MainFrame.java` và test luồng Swing tương ứng để đồng bộ rời phòng/điều hướng sau trận; không đổi bố cục hoặc protocol.
+   Ngoại lệ đã được duyệt: âm thanh tự tổng hợp (`client/.../util/SoundPlayer.java`, `javax.sound`, không file/thư viện ngoài) gắn vào
+   `AppButton`, `AnswerButton`, `NavBar` (tiếng click) và `GamePanel` (nhạc nền trong trận, tiếng đúng/sai); không nút tắt, không đổi bố cục hoặc protocol.
+   Mở rộng đã duyệt: tiếng click cho mọi thứ bấm được còn lại (checkbox, radio, `IllustratedChoiceButton`, nút số câu và menu ở
+   `SetEditorPanel`, logo NavBar, `ImagePicker`, nhấp đúp mở dòng ở `SetPickerDialog`/`HistoryPanel`).
+   Đã duyệt: màn GAME đổi sang nền tối theo ảnh mẫu mới của người dùng (thay bố cục ảnh 06–08): đồng hồ tròn, 4 ô đáp án lớn,
+   khung kết quả "ĐÚNG!/SAI! … +điểm", bảng xếp hạng nền tối (`TimerRing`, `GameScoreList`). Chỉ đổi Client, không đổi protocol.
+   Đã duyệt (nhánh `feat/hop-qua`): hộp quà bí ẩn theo ảnh mẫu — mở rộng protocol (`BOX_PICK`, `BOX_OFFER`, `BOX_RESULT`, `BOX_STATUS`),
+   `common/model` (Box*), server (`BoxRules`, `GameManager`), client (`GiftBoxPanel`, `GamePanel`, net, `MainFrame` chuyển sự kiện).
+   Mỗi người tự gặp hộp; 4 hiệu ứng STEAL/LOSE/DOUBLE/NO_LATE; Server quyết định; không đổi schema; bỏ quyền trợ giúp.
 2. KHÔNG tạo dữ liệu giả, lớp Fake, hay mock trong code chạy thật. Mọi dữ liệu đến từ Server qua `SocketGameClient`. Danh sách rỗng thì hiện
    trạng thái rỗng (chữ hướng dẫn), chưa tải xong thì hiện 'Đang tải...', lỗi thì hiện lỗi và nút Thử lại.
    Chỉ được dùng server giả bên trong thư mục test (`src/test`) để kiểm thử.

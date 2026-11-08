@@ -1,5 +1,7 @@
 package quizgame.client.ui.component;
 
+import quizgame.client.util.SoundPlayer;
+
 import quizgame.client.ui.AppTheme;
 import quizgame.client.ui.Dialogs;
 import quizgame.client.util.ImageUtil;
@@ -75,6 +77,7 @@ public class ImagePicker extends JPanel {
         MouseAdapter pick = new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
+                SoundPlayer.click();
                 choose();
             }
         };

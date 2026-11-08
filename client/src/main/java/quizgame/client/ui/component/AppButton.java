@@ -1,6 +1,7 @@
 package quizgame.client.ui.component;
 
 import quizgame.client.ui.AppTheme;
+import quizgame.client.util.SoundPlayer;
 
 import javax.swing.JButton;
 import java.awt.Color;
@@ -28,6 +29,7 @@ public class AppButton extends JButton {
         setRolloverEnabled(true);
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         setPreferredSize(new Dimension(120, 40));
+        addActionListener(e -> SoundPlayer.click());
     }
 
     /** Nút màu chính, chữ trắng. */

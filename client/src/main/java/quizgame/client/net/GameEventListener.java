@@ -1,6 +1,9 @@
 package quizgame.client.net;
 
 import quizgame.common.model.AnswerResult;
+import quizgame.common.model.BoxOffer;
+import quizgame.common.model.BoxResult;
+import quizgame.common.model.BoxStatus;
 import quizgame.common.model.ChangeType;
 import quizgame.common.model.GameStart;
 import quizgame.common.model.Invite;
@@ -52,6 +55,18 @@ public interface GameEventListener {
     }
 
     default void onGameEnd(MatchResult result) {
+    }
+
+    /** Mời chọn 1 trong 4 hộp quà. */
+    default void onBoxOffer(BoxOffer offer) {
+    }
+
+    /** Kết quả mở hộp của mình. */
+    default void onBoxResult(BoxResult result) {
+    }
+
+    /** Trạng thái hộp quà của mọi người trong trận. */
+    default void onBoxStatus(List<BoxStatus> rows) {
     }
 
     default void onDisconnected() {
