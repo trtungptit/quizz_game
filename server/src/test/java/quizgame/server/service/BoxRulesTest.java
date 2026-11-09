@@ -14,20 +14,20 @@ class BoxRulesTest {
     void viTriHopTheoSoCau() {
         assertEquals(List.of(), BoxRules.positions(1));
         assertEquals(List.of(), BoxRules.positions(3), "Trận dưới 4 câu không có hộp");
-        assertEquals(List.of(0, 2), BoxRules.positions(4));
-        assertEquals(List.of(2), BoxRules.positions(5), "Hai mốc quá gần thì chỉ còn 1 lượt");
-        assertEquals(List.of(1, 3), BoxRules.positions(6));
-        assertEquals(List.of(2, 6), BoxRules.positions(10));
+        assertEquals(List.of(1), BoxRules.positions(4), "Đúng 4 câu thì hộp ở giữa");
+        assertEquals(List.of(3), BoxRules.positions(5));
+        assertEquals(List.of(3), BoxRules.positions(8), "Hộp sau câu 8 là câu cuối nên bị bỏ");
+        assertEquals(List.of(3, 7), BoxRules.positions(9));
         assertEquals(List.of(3, 7), BoxRules.positions(12));
+        assertEquals(List.of(3, 7, 11), BoxRules.positions(13));
     }
 
     @Test
-    void hopKhongBaoGioSauCauCuoiVaCachNhauItNhatHaiCau() {
-        for (int n = 1; n <= 60; n++) {
+    void cuBonCauMotHopVaKhongBaoGioSauCauCuoi() {
+        for (int n = 5; n <= 60; n++) {
             List<Integer> p = BoxRules.positions(n);
-            assertTrue(p.size() <= 2);
+            assertEquals((n - 1) / 4, p.size(), "n=" + n + " sai số hộp");
             for (int i : p) assertTrue(i >= 0 && i < n - 1, "n=" + n + " có hộp sau câu cuối");
-            if (p.size() == 2) assertTrue(p.get(1) - p.get(0) >= 2, "n=" + n + " hai hộp quá gần");
         }
     }
 

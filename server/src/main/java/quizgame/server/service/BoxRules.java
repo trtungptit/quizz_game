@@ -23,14 +23,19 @@ public final class BoxRules {
     /** Trận ít hơn số câu này thì không có hộp (hộp sẽ sát nhau hoặc sát câu cuối). */
     public static final int MIN_QUESTIONS = 4;
 
-    /** Chỉ số câu (từ 0) mà sau đó xuất hiện hộp; tối đa 2 lượt, cách nhau ít nhất 2 câu, không sau câu cuối. */
+    /** Cứ sau mỗi GROUP_SIZE câu thì có 1 hộp. */
+    public static final int GROUP_SIZE = 4;
+
+    /**
+     * Chỉ số câu (từ 0) mà sau đó xuất hiện hộp: dưới 4 câu không có; đúng 4 câu thì hộp ở giữa (sau câu 2);
+     * còn lại cứ sau câu 4, 8, 12... có 1 hộp, bỏ hộp rơi vào câu cuối vì lúc đó trận đã kết thúc.
+     */
     public static List<Integer> positions(int questions) {
         if (questions < MIN_QUESTIONS) return List.of();
-        int p1 = Math.round(questions / 3f);
-        int p2 = Math.round(2 * questions / 3f);
-        if (p1 >= 1 && p2 - p1 >= 2 && p2 < questions) return List.of(p1 - 1, p2 - 1);
-        int middle = Math.round(questions / 2f);
-        return middle >= 1 && middle < questions ? List.of(middle - 1) : List.of();
+        if (questions == GROUP_SIZE) return List.of(GROUP_SIZE / 2 - 1);
+        List<Integer> result = new ArrayList<>();
+        for (int after = GROUP_SIZE; after < questions; after += GROUP_SIZE) result.add(after - 1);
+        return List.copyOf(result);
     }
 
     /** Xáo 4 hiệu ứng vào 4 hộp (mỗi hộp một hiệu ứng khác nhau). */

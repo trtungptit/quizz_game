@@ -166,9 +166,9 @@ Cột "Lỗi" liệt kê các `error.code` có thể gặp. Mọi yêu cầu đ�
   Sai hoặc không trả lời: 0.
 
 ### 6.1 Hộp quà bí ẩn
-- Mỗi trận tối đa 2 lượt hộp; trận dưới 4 câu không có hộp. Với n câu: p1 = round(n/3), p2 = round(2n/3) (đếm từ 1). Nếu p2 - p1 >= 2
-  và p2 < n thì hộp xuất hiện sau câu p1 và p2; ngược lại chỉ 1 lượt sau câu round(n/2). Không bao giờ sau câu cuối.
-  Ví dụ: 4 câu -> sau câu 1 và 3; 5 câu -> sau câu 3; 10 câu -> sau câu 3 và 7; 12 câu -> sau câu 4 và 8.
+- Trận dưới 4 câu không có hộp; đúng 4 câu thì 1 hộp ở giữa (sau câu 2); trên 4 câu thì cứ sau câu 4, 8, 12... (đếm từ 1) có 1 hộp.
+  Không bao giờ sau câu cuối.
+  Ví dụ: 4 câu -> sau câu 2; 8 câu -> sau câu 4; 9 câu -> sau câu 4 và 8; 12 câu -> sau câu 4 và 8.
 - Mỗi người tự gặp hộp theo nhịp riêng: khoảng 1500 ms sau `ANSWER_RESULT` của câu mốc, Server gửi `BOX_OFFER` thay cho `QUESTION` kế tiếp.
   Có `timeoutMs` = 6000 ms để `BOX_PICK`; quá 6000 + 500 ms Server tự chọn ngẫu nhiên (`auto` = true).
 - Mỗi lượt Server xáo 4 hiệu ứng vào 4 hộp, mọi người trong trận dùng chung cách xếp của lượt đó. Server quyết định, Client chỉ hiển thị.
